@@ -18,17 +18,20 @@ async function readItems(db) {
 
 // 某天的勾選，以及每個項目在該天之前最後一次完成的日期
 async function readState(db, day, lastOp) {
-  const [items, doneRows, lastRows, meta] = await Promise.all([
+  const [items, doneRows, lastRows, meta, assignRows] = await Promise.all([
     readItems(db),
     db.prepare('SELECT id, on_, by_, at_, note FROM done WHERE day = ?').bind(day).all(),
     db.prepare(`SELECT id, MAX(day) AS d FROM done WHERE on_ = 1 AND day ${lastOp} ? GROUP BY id`).bind(day).all(),
     db.prepare('SELECT meals FROM day_meta WHERE day = ?').bind(day).first(),
+    db.prepare('SELECT id, to_, by_ FROM assign WHERE day = ?').bind(day).all(),
   ]);
   const done = {};
   for (const r of doneRows.results) done[r.id] = { on: !!r.on_, by: r.by_, at: r.at_, note: r.note || '' };
   const last = {};
   for (const r of lastRows.results) last[r.id] = r.d;
-  return { items, done, last, meals: meta ? !!meta.meals : true };
+  const assign = {};
+  for (const r of assignRows.results) assign[r.id] = { to: r.to_, by: r.by_ };
+  return { items, done, last, assign, meals: meta ? !!meta.meals : true };
 }
 
 function checkItem(b) {
@@ -99,6 +102,20 @@ export default {
       const b = await body(request);
       if (!DAY.test(m[1]) || !b || typeof b.meals !== 'boolean') return bad('bad input');
       await db.prepare('INSERT INTO day_meta (day, meals) VALUES (?1, ?2) ON CONFLICT(day) DO UPDATE SET meals = ?2').bind(m[1], b.meals ? 1 : 0).run();
+      return json(await readState(db, m[1], '<'));
+    }
+
+    // POST /api/assign/2026-10-05 {id, to: '宇茹' | null}  當天請對方做；null = 換回去
+    if ((m = p.match(/^\/api\/assign\/([^/]+)$/)) && request.method === 'POST') {
+      const b = await body(request);
+      if (!DAY.test(m[1]) || !b || typeof b.id !== 'string' || b.id.length > 40) return bad('bad input');
+      if (b.to === null) {
+        await db.prepare('DELETE FROM assign WHERE day = ? AND id = ?').bind(m[1], b.id).run();
+      } else {
+        if (!PEOPLE.includes(b.to) || b.to === user) return bad('只能請對方做');
+        await db.prepare('INSERT INTO assign (day, id, to_, by_, at_) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(day, id) DO UPDATE SET to_ = ?3, by_ = ?4, at_ = ?5')
+          .bind(m[1], b.id, b.to, user, Date.now()).run();
+      }
       return json(await readState(db, m[1], '<'));
     }
 

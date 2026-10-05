@@ -126,7 +126,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const diff=(a,b)=>Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5);
 const isWk=d=>{const w=new Date(d+'T00:00:00').getDay();return w>0&&w<6};
-let day=ymd(new Date()),who='全部',view='today',me='',items=[],done={},last={},stats=null,meals=true;
+let day=ymd(new Date()),who='全部',view='today',me='',items=[],done={},last={},assign={},stats=null,meals=true;
 let edit=false,form=null,delId=null,noteId=null,pending=0,mode='connecting',flexOpen=false;
 try{const w=localStorage.getItem('myhome-who');if(WHO.includes(w))who=w;}catch(e){}
 let authed=false;
@@ -135,7 +135,7 @@ function setMode(m){mode=m;const l=$('#live');l.className='live'+(m==='live'?'':
 const post=(u,b,m='POST')=>fetch(u,{method:m,headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(async r=>{
   if(r.status===401&&authed){needLogin();throw new Error('401')}
   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.status);return j});
-function apply(j){if(j.items)items=j.items;if(j.done)done=j.done;if(j.last)last=j.last;if('meals' in j)meals=j.meals}
+function apply(j){if(j.items)items=j.items;if(j.done)done=j.done;if(j.last)last=j.last;if('meals' in j)meals=j.meals;if(j.assign)assign=j.assign}
 async function load(){
   const my=day;
   try{
@@ -158,6 +158,11 @@ async function toggle(id,on){
 async function setMeals(v){
   meals=v;render();pending++;
   try{apply(await post('/api/meta/'+day,{meals:v}));setMode('live')}catch(e){fail('儲存失敗，請再按一次。')}
+  finally{pending--;render()}
+}
+async function setAssign(id,to){
+  pending++;
+  try{apply(await post('/api/assign/'+day,{id,to}));setMode('live');$('#note').innerHTML=''}catch(e){fail('儲存失敗，請再按一次。')}
   finally{pending--;render()}
 }
 async function saveNote(id,text){
@@ -191,11 +196,14 @@ function due(i){
   return{due:false,hint:'上次 '+l.slice(5)};
 }
 const isOn=i=>done[i.id]&&done[i.id].on;
-const mine=i=>i.owner===me||i.owner==='共同';
+const eff=i=>assign[i.id]?assign[i.id].to:i.owner;
+const other=()=>me==='羿勳'?'宇茹':'羿勳';
+const mine=i=>eff(i)===me||eff(i)==='共同';
 
 function rowHtml(i,st){
   const r=done[i.id],on=isOn(i);
-  const proxy=on&&i.owner!=='共同'&&r.by&&r.by!==i.owner;
+  const ef=eff(i),as=assign[i.id];
+  const proxy=on&&ef!=='共同'&&r.by&&r.by!==ef;
   const fmt=at=>{const d=new Date(at);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
   const by=on?`<span class="by">${esc(r.by)}${proxy?'代做':''} · ${fmt(r.at)} 完成</span>`:'';
   const hint=!on&&st.hint?`<span class="${st.late?'hint':'f'}">${esc(st.hint)}</span>`:'';
@@ -203,9 +211,12 @@ function rowHtml(i,st){
   if(noteId===i.id)extra=`<div class="extra"><input id="noteIn" maxlength="80" value="${esc(r&&r.note)}" placeholder="備註，例如：今天由宇茹代做"><button class="lnk" data-act="notesave" data-id="${i.id}">儲存</button></div>`;
   else if(r&&r.note)extra=`<div class="extra">備註：${esc(r.note)} <button class="lnk" data-act="note" data-id="${i.id}">修改</button></div>`;
   else if(on)extra=`<div class="extra"><button class="lnk" data-act="note" data-id="${i.id}">加備註</button></div>`;
+  let asg='';
+  if(as)asg=`<div class="extra">${esc(as.by)}請${esc(as.to)}今天做 <button class="lnk" data-act="assign" data-id="${i.id}" data-to="">換回去</button></div>`;
+  else if(!on&&ef!==other())asg=`<div class="extra"><button class="lnk" data-act="assign" data-id="${i.id}" data-to="${other()}">請${other()}做</button></div>`;
   let ed='';
   if(edit)ed=`<div class="extra"><button class="lnk" data-act="edit" data-id="${i.id}">修改</button>`+(delId===i.id?`<button class="lnk danger" data-act="del" data-id="${i.id}">確定刪除？</button><button class="lnk" data-act="delno">取消</button>`:`<button class="lnk danger" data-act="del" data-id="${i.id}">刪除</button>`)+`</div>`;
-  return `<div class="item"><div class="row ${on?'done':''}"><label class="main"><input type="checkbox" data-id="${i.id}" ${on?'checked':''}><span class="t"><b>${esc(i.title)}</b><span class="f">${esc(i.freq)}</span>${hint}${by}</span></label><span class="tag ${CLS[i.owner]}">${i.owner}</span></div>${extra}${ed}</div>`;
+  return `<div class="item"><div class="row ${on?'done':''}"><label class="main"><input type="checkbox" data-id="${i.id}" ${on?'checked':''}><span class="t"><b>${esc(i.title)}</b><span class="f">${esc(i.freq)}</span>${hint}${by}</span></label><span class="tag ${CLS[ef]}">${ef}${as?'（今天）':''}</span></div>${extra}${asg}${ed}</div>`;
 }
 function formHtml(){
   const f=form,opt=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
@@ -223,21 +234,21 @@ function formHtml(){
 const newForm=cat=>({id:'',title:'',cat,owner:'羿勳',freq:'每日',every:1,wd:0,meal:0});
 
 function renderToday(){
-  const vis=items.filter(i=>who==='全部'||i.owner===who);
+  const vis=items.filter(i=>who==='全部'||eff(i)===who);
   let h='',hidden=0;
   for(const c of CATS){
-    const rows=vis.filter(i=>i.cat===c).map(i=>[i,due(i)]).filter(([i,s])=>{const show=!s.flex&&(s.due||isOn(i));if(!show&&!s.flex&&!s.skip)hidden++;return show});
+    const rows=vis.filter(i=>i.cat===c).map(i=>[i,due(i)]).filter(([i,s])=>{const show=!!assign[i.id]||!s.flex&&(s.due||isOn(i));if(!show&&!s.flex&&!s.skip)hidden++;return show});
     if(!rows.length)continue;
     h+=`<h2>${c} ${META.names[c]}</h2><p class="q">${esc(META.quotes[c])}</p>`+rows.map(([i,s])=>rowHtml(i,s)).join('');
   }
   if(!h)h='<div class="empty">今天沒有要做的項目 🎉</div>';
-  const fx=vis.filter(i=>i.every===0&&!(i.meal&&!meals&&!isOn(i)));
+  const fx=vis.filter(i=>i.every===0&&!assign[i.id]&&!(i.meal&&!meals&&!isOn(i)));
   if(fx.length)h+=`<details class="flex" ${(flexOpen||fx.some(isOn))?'open':''} data-flex><summary>依需求（${fx.length} 項，需要時再勾）</summary>`+fx.map(i=>rowHtml(i,{})).join('')+'</details>';
   if(hidden)h+=`<p class="q" style="text-align:center;margin-top:16px">另有 ${hidden} 項還沒到下次要做的時間，在「全部」可以看到</p>`;
   return h;
 }
 function renderAll(){
-  const vis=items.filter(i=>who==='全部'||i.owner===who);
+  const vis=items.filter(i=>who==='全部'||eff(i)===who);
   let h='';
   for(const c of CATS){
     const rows=vis.filter(i=>i.cat===c);
@@ -274,7 +285,7 @@ function render(){
   $('#me').innerHTML=`登入身份：<b>${esc(me)}</b> <button data-act="invite">新增裝置／邀請家人</button><button data-act="logout">登出</button>`;
   if(stat){
     $('#prog').innerHTML=['羿勳','宇茹','共同'].map(w=>{
-      const a=items.filter(i=>i.owner===w&&(view==='all'||!due(i).flex&&(due(i).due||isOn(i)))),n=a.filter(isOn).length,p=a.length?Math.round(n/a.length*100):0;
+      const a=items.filter(i=>eff(i)===w&&(view==='all'||assign[i.id]||!due(i).flex&&(due(i).due||isOn(i)))),n=a.filter(isOn).length,p=a.length?Math.round(n/a.length*100):0;
       return `<div class="p ${CLS[w]}"><span>${w}</span><b>${n}/${a.length}</b><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('');
     $('#tabs').innerHTML=WHO.map(w=>`<button role="tab" aria-selected="${w===who}" class="${w===who?'on':''}" data-w="${w}">${w}</button>`).join('');
     // 提醒：只算自己和共同的項目
@@ -282,7 +293,9 @@ function render(){
     if(day===ymd(new Date())){
       const left=items.filter(i=>mine(i)&&i.every===1&&due(i).due&&!isOn(i)).length;
       const late=items.filter(i=>mine(i)&&i.every>1&&due(i).late&&!isOn(i)).length;
-      if(left||late)w=`<div class="warn"><span><b>${me}</b> 今天還有 <b>${left}</b> 項每日項目沒做</span>${late?`<span>另有 <b>${late}</b> 項已超過週期</span>`:''}</div>`;
+      const asked=items.filter(i=>assign[i.id]&&assign[i.id].to===me&&assign[i.id].by!==me&&!isOn(i));
+      const ask=asked.length?`<span><b>${esc(other())}</b> 請你今天做 <b>${asked.length}</b> 項：${asked.map(i=>esc(i.title)).join('、')}</span>`:'';
+      if(left||late||ask)w=`<div class="warn">${ask}<span><b>${me}</b> 今天還有 <b>${left}</b> 項每日項目沒做</span>${late?`<span>另有 <b>${late}</b> 項已超過週期</span>`:''}</div>`;
       else if(items.length)w='<div class="warn"><span>今天的每日項目都完成了，辛苦了。</span></div>';
     }
     $('#warn').innerHTML=w;
@@ -305,6 +318,7 @@ document.addEventListener('click',e=>{
   else if(a==='del'){if(delId===id)removeItem(id);else{delId=id;render()}}
   else if(a==='delno'){delId=null;render()}
   else if(a==='note'){noteId=id;render()}
+  else if(a==='assign')setAssign(id,t.dataset.to||null);
   else if(a==='notesave')saveNote(id,$('#noteIn').value);
   else if(a==='invite'){$('#invite').innerHTML=`<div class="note">邀請誰？ <button class="lnk" data-act="inv" data-who="${me}">我自己的新裝置</button> <button class="lnk" data-act="inv" data-who="${me==='羿勳'?'宇茹':'羿勳'}">${me==='羿勳'?'宇茹':'羿勳'}</button> <button class="lnk" data-act="invclose">取消</button></div>`}
   else if(a==='inv')makeInvite(t.dataset.who);
@@ -327,7 +341,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{const id=e.target.dataset.id;if(id&&e.target.type==='checkbox')toggle(id,e.target.checked)});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='noteIn')saveNote(noteId,e.target.value);if(e.key==='Escape'&&noteId){noteId=null;render()}});
 document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details[data-flex]'))flexOpen=e.target.open},true);
-function go(d){day=d;done={};last={};meals=true;render();load()}
+function go(d){day=d;done={};last={};assign={};meals=true;render();load()}
 function shift(n){const d=new Date(day+'T00:00:00');d.setDate(d.getDate()+n);go(ymd(d))}
 $('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);$('#today').onclick=()=>go(ymd(new Date()));
 let lastToday=ymd(new Date());

@@ -49,3 +49,12 @@ CREATE TABLE IF NOT EXISTS challenges (
   ref     TEXT,
   expires INTEGER NOT NULL
 );
+-- 當天請對方做某項（隔天自動失效）
+CREATE TABLE IF NOT EXISTS assign (
+  day  TEXT NOT NULL,
+  id   TEXT NOT NULL,
+  to_  TEXT NOT NULL,
+  by_  TEXT NOT NULL,
+  at_  INTEGER NOT NULL,
+  PRIMARY KEY (day, id)
+);
