@@ -104,6 +104,7 @@ details.flex summary{cursor:pointer;font-weight:700;font-size:16px;padding:4px 0
 <p class="sub"><span>兩個人的手機即時同步，隔天自動換新的一頁</span><span class="live off" id="live">連線中</span></p>
 <div class="date"><button class="btn" id="prev" aria-label="前一天">‹</button><div class="d" id="dl"></div><button class="btn" id="next" aria-label="後一天">›</button><button class="btn" id="today">今天</button></div>
 <div class="me" id="me"></div>
+<div class="me" id="meals"></div>
 <div id="note"></div>
 <div class="views" id="views"></div>
 <div id="warn"></div>
@@ -121,14 +122,14 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const diff=(a,b)=>Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5);
 const isWk=d=>{const w=new Date(d+'T00:00:00').getDay();return w>0&&w<6};
-let day=ymd(new Date()),who='全部',view='today',me='',items=[],done={},last={},stats=null;
+let day=ymd(new Date()),who='全部',view='today',me='',items=[],done={},last={},stats=null,meals=true;
 let edit=false,form=null,delId=null,noteId=null,pending=0,mode='connecting',flexOpen=false;
 try{const w=localStorage.getItem('myhome-who');if(WHO.includes(w))who=w;me=localStorage.getItem('myhome-me')||''}catch(e){}
 if(!me)me='羿勳';
 
 function setMode(m){mode=m;const l=$('#live');l.className='live'+(m==='live'?'':' off');l.textContent=m==='live'?'已同步':m==='off'?'離線':'連線中'}
 const post=(u,b,m='POST')=>fetch(u,{method:m,headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
-function apply(j){if(j.items)items=j.items;if(j.done)done=j.done;if(j.last)last=j.last}
+function apply(j){if(j.items)items=j.items;if(j.done)done=j.done;if(j.last)last=j.last;if('meals' in j)meals=j.meals}
 async function load(){
   const my=day;
   try{
@@ -148,6 +149,11 @@ async function toggle(id,on){
   catch(e){fail('儲存失敗，請檢查網路後再勾一次。')}
   finally{pending--;render()}
 }
+async function setMeals(v){
+  meals=v;render();pending++;
+  try{apply(await post('/api/meta/'+day,{meals:v}));setMode('live')}catch(e){fail('儲存失敗，請再按一次。')}
+  finally{pending--;render()}
+}
 async function saveNote(id,text){
   pending++;noteId=null;
   try{apply(await post('/api/day/'+day,{id,by:me,note:text}))}catch(e){fail('備註儲存失敗。')}
@@ -155,7 +161,7 @@ async function saveNote(id,text){
 }
 async function saveItem(){
   const f=form;if(!f)return;
-  const b={title:f.title,cat:f.cat,owner:f.owner,freq:f.freq,every:f.every,wd:f.wd};
+  const b={title:f.title,cat:f.cat,owner:f.owner,freq:f.freq,every:f.every,wd:f.wd,meal:f.meal?1:0};
   if(!b.title.trim()){fail('請輸入項目名稱');return}
   pending++;
   try{apply(await (f.id?post('/api/items/'+f.id,b,'PUT'):post('/api/items',b)));form=null;$('#note').innerHTML=''}catch(e){fail('項目儲存失敗，請確認欄位。')}
@@ -169,12 +175,13 @@ async function removeItem(id){
 
 // 這個項目在目前這天要不要做
 function due(i){
+  if(i.meal&&!meals)return{due:false,skip:true};
   if(i.every===0)return{due:false,flex:true};
   if(i.wd&&!isWk(day))return{due:false};
   const l=last[i.id];
   if(!l)return{due:true,hint:'尚未做過',late:false};
   const s=diff(l,day);
-  if(s>=i.every)return{due:true,hint:s>i.every?s+' 天沒做':'',late:s>i.every,since:s};
+  if(s>=i.every)return{due:true,hint:s>i.every&&!i.meal?s+' 天沒做':'',late:s>i.every&&!i.meal,since:s};
   return{due:false,hint:'上次 '+l.slice(5)};
 }
 const isOn=i=>done[i.id]&&done[i.id].on;
@@ -204,20 +211,21 @@ function formHtml(){
 <label>負責人<select id="fOwner">${opt(['羿勳','宇茹','共同'],f.owner)}</select></label>
 <label>多久做一次<select id="fSched">${ps.map((p,n)=>`<option value="${n}" ${n===cur?'selected':''}>${esc(p[0])}</option>`).join('')}</select></label>
 <label>頻率說明<input id="fFreq" maxlength="20" value="${esc(f.freq)}"></label>
+<label class="w" style="flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--ink)"><input type="checkbox" id="fMeal" style="width:auto" ${f.meal?'checked':''}>只在當天有在家吃飯時才需要（洗碗、煮飯等）</label>
 <div class="acts"><button class="btn" data-act="formcancel">取消</button><button class="pri" data-act="formsave">儲存</button></div></div>`;
 }
-const newForm=cat=>({id:'',title:'',cat,owner:'羿勳',freq:'每日',every:1,wd:0});
+const newForm=cat=>({id:'',title:'',cat,owner:'羿勳',freq:'每日',every:1,wd:0,meal:0});
 
 function renderToday(){
   const vis=items.filter(i=>who==='全部'||i.owner===who);
   let h='',hidden=0;
   for(const c of CATS){
-    const rows=vis.filter(i=>i.cat===c).map(i=>[i,due(i)]).filter(([i,s])=>{const show=!s.flex&&(s.due||isOn(i));if(!show&&!s.flex)hidden++;return show});
+    const rows=vis.filter(i=>i.cat===c).map(i=>[i,due(i)]).filter(([i,s])=>{const show=!s.flex&&(s.due||isOn(i));if(!show&&!s.flex&&!s.skip)hidden++;return show});
     if(!rows.length)continue;
     h+=`<h2>${c} ${META.names[c]}</h2><p class="q">${esc(META.quotes[c])}</p>`+rows.map(([i,s])=>rowHtml(i,s)).join('');
   }
   if(!h)h='<div class="empty">今天沒有要做的項目 🎉</div>';
-  const fx=vis.filter(i=>i.every===0);
+  const fx=vis.filter(i=>i.every===0&&!(i.meal&&!meals&&!isOn(i)));
   if(fx.length)h+=`<details class="flex" ${(flexOpen||fx.some(isOn))?'open':''} data-flex><summary>依需求（${fx.length} 項，需要時再勾）</summary>`+fx.map(i=>rowHtml(i,{})).join('')+'</details>';
   if(hidden)h+=`<p class="q" style="text-align:center;margin-top:16px">另有 ${hidden} 項還沒到下次要做的時間，在「全部」可以看到</p>`;
   return h;
@@ -245,7 +253,7 @@ function renderStats(){
   h+='<div class="cap">'+days.map(d=>`<span>${+d.slice(8)}</span>`).join('')+'</div>';
   h+='<div class="leg"><span><b style="background:var(--yx)"></b>羿勳</span><span><b style="background:var(--yr)"></b>宇茹</span><span>（顯示誰勾的）</span></div>';
   const today=ymd(new Date());
-  const late=stats.items.filter(i=>i.every>0).map(i=>{const l=stats.last[i.id];const s=l?diff(l,today):null;return{i,l,s,over:s==null?9999:s-i.every}}).filter(x=>x.over>0).sort((a,b)=>b.over-a.over).slice(0,10);
+  const late=stats.items.filter(i=>i.every>0&&!i.meal).map(i=>{const l=stats.last[i.id];const s=l?diff(l,today):null;return{i,l,s,over:s==null?9999:s-i.every}}).filter(x=>x.over>0).sort((a,b)=>b.over-a.over).slice(0,10);
   h+='<h2>最久沒做的項目</h2>';
   h+=late.length?late.map(x=>`<div class="late"><div>${esc(x.i.title)}<br><span>${x.i.owner} · ${esc(x.i.freq)}</span></div><span>${x.s==null?'從未完成':x.s+' 天沒做'}</span></div>`).join(''):'<div class="empty">全部都在週期內</div>';
   return h;
@@ -254,6 +262,7 @@ function render(){
   const wk='日一二三四五六'[new Date(day+'T00:00:00').getDay()];
   $('#dl').textContent=day+'（週'+wk+'）'+(day===ymd(new Date())?' · 今天':'');
   $('#views').innerHTML=[['today','今天'],['all','全部'],['stats','統計']].map(([k,n])=>`<button data-view="${k}" class="${view===k?'on':''}">${n}</button>`).join('')+`<button data-act="edit-toggle" class="${edit?'on':''}">${edit?'完成編輯':'編輯項目'}</button>`;
+  $('#meals').innerHTML='這天在家吃飯 '+[[true,'有'],[false,'沒有']].map(([v,n])=>`<button data-meals="${v}" class="${meals===v?'on':''}">${n}</button>`).join('')+(meals?'':' <span class="f">洗碗、煮飯等先不列入</span>');
   const stat=view!=='stats';
   $('#prog').hidden=!stat;$('#tabs').hidden=!stat;$('#warn').hidden=!stat;
   $('#me').innerHTML='我是 '+['羿勳','宇茹'].map(n=>`<button data-me="${n}" class="${n===me?'on':''}">${n}</button>`).join('');
@@ -280,6 +289,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.w){who=t.dataset.w;try{localStorage.setItem('myhome-who',who)}catch(_){};render();return}
   if(t.dataset.view){view=t.dataset.view;if(view==='stats')loadStats();render();return}
+  if(t.dataset.meals){setMeals(t.dataset.meals==='true');return}
   if(t.dataset.me){me=t.dataset.me;try{localStorage.setItem('myhome-me',me)}catch(_){};render();return}
   const a=t.dataset.act,id=t.dataset.id;
   if(a==='edit-toggle'){edit=!edit;form=null;delId=null;if(edit&&view==='stats')view='all';render()}
@@ -298,6 +308,7 @@ document.addEventListener('input',e=>{
   else if(t.id==='fFreq')form.freq=t.value;
   else if(t.id==='fCat')form.cat=t.value;
   else if(t.id==='fOwner')form.owner=t.value;
+  else if(t.id==='fMeal')form.meal=t.checked?1:0;
   else if(t.id==='fSched'){
     let ps=PRESETS.map(p=>[...p]);if(!ps.some(p=>p[1]===form.every&&p[2]===form.wd))ps.push(['',form.every,form.wd]);
     const p=ps[+t.value];if(p){const wasPreset=PRESETS.some(x=>x[0]===form.freq)||!form.freq;form.every=p[1];form.wd=p[2];if(p[0]&&wasPreset){form.freq=p[0];$('#fFreq').value=p[0]}}
@@ -306,7 +317,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{const id=e.target.dataset.id;if(id&&e.target.type==='checkbox')toggle(id,e.target.checked)});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='noteIn')saveNote(noteId,e.target.value);if(e.key==='Escape'&&noteId){noteId=null;render()}});
 document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details[data-flex]'))flexOpen=e.target.open},true);
-function go(d){day=d;done={};last={};render();load()}
+function go(d){day=d;done={};last={};meals=true;render();load()}
 function shift(n){const d=new Date(day+'T00:00:00');d.setDate(d.getDate()+n);go(ymd(d))}
 $('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);$('#today').onclick=()=>go(ymd(new Date()));
 let lastToday=ymd(new Date());

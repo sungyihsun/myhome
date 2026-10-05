@@ -37,3 +37,4 @@ INSERT OR IGNORE INTO items (id,cat,title,owner,freq,every,wd,sort,active) VALUE
 INSERT OR IGNORE INTO items (id,cat,title,owner,freq,every,wd,sort,active) VALUES ('i37','寵','清洗貓咪餐碗與水碗','宇茹','每日／每週',1,0,37,1);
 INSERT OR IGNORE INTO items (id,cat,title,owner,freq,every,wd,sort,active) VALUES ('i38','寵','梳毛','宇茹','每日',1,0,38,1);
 INSERT OR IGNORE INTO items (id,cat,title,owner,freq,every,wd,sort,active) VALUES ('i39','寵','剪指甲','宇茹','依需求',0,0,39,1);
+UPDATE items SET meal = 1 WHERE id IN ('i01','i02','i03','i04');

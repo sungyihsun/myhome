@@ -11,22 +11,23 @@ const bad = (m) => json({ error: m }, 400);
 
 async function readItems(db) {
   const { results } = await db.prepare(
-    'SELECT id, cat, title, owner, freq, every, wd, sort FROM items WHERE active = 1 ORDER BY sort, id').all();
+    'SELECT id, cat, title, owner, freq, every, wd, meal, sort FROM items WHERE active = 1 ORDER BY sort, id').all();
   return results;
 }
 
 // 某天的勾選，以及每個項目在該天之前最後一次完成的日期
 async function readState(db, day, lastOp) {
-  const [items, doneRows, lastRows] = await Promise.all([
+  const [items, doneRows, lastRows, meta] = await Promise.all([
     readItems(db),
     db.prepare('SELECT id, on_, by_, at_, note FROM done WHERE day = ?').bind(day).all(),
     db.prepare(`SELECT id, MAX(day) AS d FROM done WHERE on_ = 1 AND day ${lastOp} ? GROUP BY id`).bind(day).all(),
+    db.prepare('SELECT meals FROM day_meta WHERE day = ?').bind(day).first(),
   ]);
   const done = {};
   for (const r of doneRows.results) done[r.id] = { on: !!r.on_, by: r.by_, at: r.at_, note: r.note || '' };
   const last = {};
   for (const r of lastRows.results) last[r.id] = r.d;
-  return { items, done, last };
+  return { items, done, last, meals: meta ? !!meta.meals : true };
 }
 
 function checkItem(b) {
@@ -38,7 +39,7 @@ function checkItem(b) {
   if (!OWNERS.includes(b.owner)) return '負責人不正確';
   if (freq.length > 20) return '頻率說明太長';
   if (every < 0 || every > 365) return '週期不正確';
-  return { title, freq: freq || '依需求', every, wd: b.wd ? 1 : 0, cat: b.cat, owner: b.owner };
+  return { title, freq: freq || '依需求', every, wd: b.wd ? 1 : 0, meal: b.meal ? 1 : 0, cat: b.cat, owner: b.owner };
 }
 
 async function body(request) {
@@ -82,6 +83,14 @@ export default {
       return json(await readState(db, day, '<'));
     }
 
+    // POST /api/meta/2026-10-05 {meals: false}  當天沒有在家吃飯
+    if ((m = p.match(/^\/api\/meta\/([^/]+)$/)) && request.method === 'POST') {
+      const b = await body(request);
+      if (!DAY.test(m[1]) || !b || typeof b.meals !== 'boolean') return bad('bad input');
+      await db.prepare('INSERT INTO day_meta (day, meals) VALUES (?1, ?2) ON CONFLICT(day) DO UPDATE SET meals = ?2').bind(m[1], b.meals ? 1 : 0).run();
+      return json(await readState(db, m[1], '<'));
+    }
+
     // POST /api/items
     if (p === '/api/items' && request.method === 'POST') {
       const b = await body(request);
@@ -89,8 +98,8 @@ export default {
       if (!v || typeof v === 'string') return bad(v || 'bad input');
       const id = 'n' + Date.now().toString(36);
       const { results } = await db.prepare('SELECT COALESCE(MAX(sort), 0) + 1 AS s FROM items').all();
-      await db.prepare('INSERT INTO items (id, cat, title, owner, freq, every, wd, sort, active) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,1)')
-        .bind(id, v.cat, v.title, v.owner, v.freq, v.every, v.wd, results[0].s).run();
+      await db.prepare('INSERT INTO items (id, cat, title, owner, freq, every, wd, meal, sort, active) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,1)')
+        .bind(id, v.cat, v.title, v.owner, v.freq, v.every, v.wd, v.meal, results[0].s).run();
       return json({ items: await readItems(db) });
     }
 
@@ -101,8 +110,8 @@ export default {
         const b = await body(request);
         const v = b && checkItem(b);
         if (!v || typeof v === 'string') return bad(v || 'bad input');
-        await db.prepare('UPDATE items SET cat=?2, title=?3, owner=?4, freq=?5, every=?6, wd=?7 WHERE id=?1')
-          .bind(id, v.cat, v.title, v.owner, v.freq, v.every, v.wd).run();
+        await db.prepare('UPDATE items SET cat=?2, title=?3, owner=?4, freq=?5, every=?6, wd=?7, meal=?8 WHERE id=?1')
+          .bind(id, v.cat, v.title, v.owner, v.freq, v.every, v.wd, v.meal).run();
         return json({ items: await readItems(db) });
       }
       if (request.method === 'DELETE') {
