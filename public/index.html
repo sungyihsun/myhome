@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>家庭分工日誌</title>
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
 /* 版面：單欄清單，上方日期與三人進度，下方依分類分組的勾選列 */
@@ -57,6 +58,44 @@ h2{font-size:16px;margin:20px 0 2px}
 .me button.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
 .empty{text-align:center;color:var(--mute);padding:30px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+.views{display:flex;gap:6px;margin-bottom:10px}
+.views button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 0;font-size:15px}
+.views button.on{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:700}
+.warn{background:var(--accsoft);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:2px}
+.warn b{font-weight:700}
+.item{margin-bottom:6px}
+.item .row{margin-bottom:0}
+.row .main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer}
+.hint{font-size:12px;color:#b45309;display:block}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hint{color:#f0b060}}
+:root[data-theme="dark"] .hint{color:#f0b060}
+.extra{display:flex;gap:8px;align-items:center;padding:2px 4px 0 46px;font-size:12px;color:var(--mute);flex-wrap:wrap}
+.extra .lnk,.lnk{background:none;border:0;padding:2px 4px;color:var(--acc);font-size:12px;text-decoration:underline}
+.extra input{flex:1;min-width:120px;font:inherit;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--card);color:var(--ink)}
+.sub2{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 8px}
+.sub2 h2{margin:0}
+.add{border:1px dashed var(--line);background:none;border-radius:10px;padding:8px;width:100%;font-size:14px;color:var(--acc);margin-bottom:6px}
+.form{background:var(--card);border:1px solid var(--acc);border-radius:12px;padding:12px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:2px;min-width:0}
+.form .w{grid-column:1/-1}
+.form input,.form select{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:var(--bg);color:var(--ink);min-width:0;width:100%}
+.form .acts{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.pri{background:var(--acc);color:var(--bg);border:0;border-radius:10px;padding:8px 16px;font-size:15px}
+.danger{color:#b3261e}
+details.flex{margin-top:16px}
+details.flex summary{cursor:pointer;font-weight:700;font-size:16px;padding:4px 0}
+.chart{display:flex;align-items:flex-end;gap:4px;height:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px 6px}
+.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;height:100%;min-width:0}
+.col i{display:block;min-height:0}
+.col .s1{background:var(--yx)}.col .s2{background:var(--yr)}
+.cap{display:flex;gap:4px;padding:2px 8px;font-size:10px;color:var(--mute);font-variant-numeric:tabular-nums}
+.cap span{flex:1;text-align:center}
+.leg{display:flex;gap:14px;font-size:13px;color:var(--mute);margin:8px 0}
+.leg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+.tot{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.late{display:flex;justify-content:space-between;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:14px}
+.late span{color:var(--mute);font-size:12px;flex:none}
+@media (max-width:420px){.form{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -66,74 +105,216 @@ h2{font-size:16px;margin:20px 0 2px}
 <div class="date"><button class="btn" id="prev" aria-label="前一天">‹</button><div class="d" id="dl"></div><button class="btn" id="next" aria-label="後一天">›</button><button class="btn" id="today">今天</button></div>
 <div class="me" id="me"></div>
 <div id="note"></div>
+<div class="views" id="views"></div>
+<div id="warn"></div>
 <div class="prog" id="prog"></div>
 <div class="tabs" id="tabs" role="tablist"></div>
 <div id="list"></div>
 </main>
 <script>
-const DATA={"items": [{"c": "食", "t": "洗碗", "o": "羿勳", "f": "每日／用餐後", "id": "i01"}, {"c": "食", "t": "餐桌收拾", "o": "羿勳", "f": "每日／用餐後", "id": "i02"}, {"c": "食", "t": "收廚房", "o": "宇茹", "f": "每日／用餐後", "id": "i03"}, {"c": "食", "t": "煮飯", "o": "宇茹", "f": "依家庭需求", "id": "i04"}, {"c": "食", "t": "整理冰箱與清理過期食品", "o": "宇茹", "f": "每週／每月", "id": "i05"}, {"c": "食", "t": "買菜與食材採買", "o": "宇茹", "f": "每週／依需求", "id": "i06"}, {"c": "衣", "t": "把衣服拿去洗", "o": "羿勳", "f": "依需求", "id": "i07"}, {"c": "衣", "t": "把衣服從洗衣機拿出來烘", "o": "羿勳", "f": "依需求", "id": "i08"}, {"c": "衣", "t": "把衣服晾起來", "o": "羿勳", "f": "依需求", "id": "i09"}, {"c": "衣", "t": "把烘好的衣服拿出", "o": "羿勳", "f": "依需求", "id": "i10"}, {"c": "衣", "t": "把衣服掛好／收進衣櫃", "o": "宇茹", "f": "依需求", "id": "i11"}, {"c": "衣", "t": "更換與清洗床單、被套", "o": "宇茹", "f": "每週／每兩週", "id": "i12"}, {"c": "住", "t": "倒垃圾", "o": "羿勳", "f": "每日", "id": "i13"}, {"c": "住", "t": "垃圾分類與資源回收", "o": "羿勳", "f": "每週", "id": "i14"}, {"c": "住", "t": "讓石頭掃地", "o": "羿勳", "f": "三天一次", "id": "i15"}, {"c": "住", "t": "清理石頭集塵盒／刷具", "o": "羿勳", "f": "每週／依提示", "id": "i16"}, {"c": "住", "t": "浴室清潔", "o": "羿勳", "f": "每週", "id": "i17"}, {"c": "住", "t": "馬桶清潔", "o": "羿勳", "f": "每週", "id": "i18"}, {"c": "住", "t": "補充家庭日用品", "o": "羿勳", "f": "依需求", "id": "i19"}, {"c": "住", "t": "整理鞋櫃", "o": "宇茹", "f": "每月／每季", "id": "i20"}, {"c": "住", "t": "整理儲藏空間", "o": "宇茹", "f": "每季", "id": "i21"}, {"c": "行", "t": "訂機票", "o": "羿勳", "f": "依需求", "id": "i22"}, {"c": "育", "t": "暖暖簽聯絡簿", "o": "羿勳", "f": "上學日", "id": "i23"}, {"c": "育", "t": "準備暖暖上學用品", "o": "羿勳", "f": "上學日前", "id": "i24"}, {"c": "育", "t": "整理暖暖書包與替換衣物", "o": "羿勳", "f": "上學日／每週", "id": "i25"}, {"c": "育", "t": "收玩具", "o": "羿勳", "f": "每日", "id": "i26"}, {"c": "育", "t": "幫暖暖洗澡", "o": "宇茹", "f": "每日", "id": "i27"}, {"c": "育", "t": "暖暖睡前陪讀／哄睡", "o": "宇茹", "f": "每日", "id": "i28"}, {"c": "育", "t": "接送暖暖", "o": "共同", "f": "上學日", "id": "i29"}, {"c": "育", "t": "陪暖暖", "o": "共同", "f": "每日", "id": "i30"}, {"c": "樂", "t": "整理露營用品", "o": "宇茹", "f": "露營前後", "id": "i31"}, {"c": "寵", "t": "清貓砂盆和地板", "o": "羿勳", "f": "依需求", "id": "i32"}, {"c": "寵", "t": "補充貓砂", "o": "羿勳", "f": "依需求", "id": "i33"}, {"c": "寵", "t": "補充貓糧與飲水", "o": "羿勳", "f": "每日／依需求", "id": "i34"}, {"c": "寵", "t": "補充貓糧與貓砂庫存", "o": "羿勳", "f": "依需求", "id": "i35"}, {"c": "寵", "t": "餵貓吃點心", "o": "宇茹", "f": "依需求", "id": "i36"}, {"c": "寵", "t": "清洗貓咪餐碗與水碗", "o": "宇茹", "f": "每日／每週", "id": "i37"}, {"c": "寵", "t": "梳毛", "o": "宇茹", "f": "每日", "id": "i38"}, {"c": "寵", "t": "剪指甲", "o": "宇茹", "f": "依需求", "id": "i39"}], "quotes": {"食": "一起準備每一餐，讓家的味道成為日常裡最踏實的幸福。", "衣": "一件件洗淨收好的衣服，藏著我們對彼此細心的照顧。", "住": "一起整理我們的家，讓每個角落都住著安心與溫暖。", "行": "一起安排每一次出發與抵達，讓陪伴成為最安心的路。", "育": "孩子是我們愛的結晶，陪伴她成長是我們共同的幸福。", "樂": "一起收藏生活裡的小快樂，也一起創造家的美好回憶。", "寵": "毛孩也是家人，我們一起守護牠每天的安心與健康。"}, "names": {"食": "飲食", "衣": "衣物", "住": "居家", "行": "出行", "育": "育兒", "樂": "休閒", "寵": "寵物"}};
+const META={"quotes": {"食": "一起準備每一餐，讓家的味道成為日常裡最踏實的幸福。", "衣": "一件件洗淨收好的衣服，藏著我們對彼此細心的照顧。", "住": "一起整理我們的家，讓每個角落都住著安心與溫暖。", "行": "一起安排每一次出發與抵達，讓陪伴成為最安心的路。", "育": "孩子是我們愛的結晶，陪伴她成長是我們共同的幸福。", "樂": "一起收藏生活裡的小快樂，也一起創造家的美好回憶。", "寵": "毛孩也是家人，我們一起守護牠每天的安心與健康。"}, "names": {"食": "飲食", "衣": "衣物", "住": "居家", "行": "出行", "育": "育兒", "樂": "休閒", "寵": "寵物"}};
 const WHO=['全部','羿勳','宇茹','共同'],CLS={'羿勳':'o1','宇茹':'o2','共同':'o3'};
+const CATS=Object.keys(META.names);
+const PRESETS=[['每日',1,0],['上學日',1,1],['每三天',3,0],['每週',7,0],['每兩週',14,0],['每月',30,0],['每季',90,0],['依需求',0,0]];
 const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-let day=ymd(new Date()),who='全部',done={},me='',pending=0,mode='connecting';const canWrite=true;
+const diff=(a,b)=>Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5);
+const isWk=d=>{const w=new Date(d+'T00:00:00').getDay();return w>0&&w<6};
+let day=ymd(new Date()),who='全部',view='today',me='',items=[],done={},last={},stats=null;
+let edit=false,form=null,delId=null,noteId=null,pending=0,mode='connecting',flexOpen=false;
 try{const w=localStorage.getItem('myhome-who');if(WHO.includes(w))who=w;me=localStorage.getItem('myhome-me')||''}catch(e){}
-if(!me)me=who==='宇茹'?'宇茹':'羿勳';
+if(!me)me='羿勳';
 
 function setMode(m){mode=m;const l=$('#live');l.className='live'+(m==='live'?'':' off');l.textContent=m==='live'?'已同步':m==='off'?'離線':'連線中'}
+const post=(u,b,m='POST')=>fetch(u,{method:m,headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+function apply(j){if(j.items)items=j.items;if(j.done)done=j.done;if(j.last)last=j.last}
 async function load(){
-  const myDay=day;
+  const my=day;
   try{
-    const r=await fetch('/api/day/'+myDay,{cache:'no-store'});
-    if(!r.ok)throw 0;
-    const j=await r.json();
-    if(myDay!==day||pending)return;
-    done=j.done||{};setMode('live');render();
+    const r=await fetch('/api/state/'+my,{cache:'no-store'});if(!r.ok)throw 0;
+    const j=await r.json();if(my!==day||pending)return;
+    apply(j);setMode('live');render()
   }catch(e){setMode('off')}
 }
+async function loadStats(){
+  const to=ymd(new Date()),f=new Date();f.setDate(f.getDate()-13);
+  try{const r=await fetch('/api/stats?from='+ymd(f)+'&to='+to,{cache:'no-store'});if(!r.ok)throw 0;stats=await r.json();setMode('live');render()}catch(e){setMode('off')}
+}
+function fail(m){$('#note').innerHTML='<div class="note">'+esc(m)+'</div>';setMode('off')}
 async function toggle(id,on){
-  const rec={on,by:me,at:Date.now()};
-  done={...done,[id]:rec};render();pending++;
-  try{
-    const r=await fetch('/api/day/'+day,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id,on,by:me})});
-    if(!r.ok)throw 0;
-    const j=await r.json();done=j.done||done;setMode('live');
-  }catch(e){setMode('off');$('#note').innerHTML='<div class="note">儲存失敗，請檢查網路後再勾一次。</div>'}
+  const old=done[id]||{};done={...done,[id]:{...old,on,by:me,at:Date.now()}};render();pending++;
+  try{apply(await post('/api/day/'+day,{id,on,by:me}));setMode('live');$('#note').innerHTML=''}
+  catch(e){fail('儲存失敗，請檢查網路後再勾一次。')}
   finally{pending--;render()}
 }
-function renderMe(){
-  $('#me').innerHTML='我是 '+['羿勳','宇茹'].map(n=>`<button data-me="${n}" class="${n===me?'on':''}">${n}</button>`).join('');
+async function saveNote(id,text){
+  pending++;noteId=null;
+  try{apply(await post('/api/day/'+day,{id,by:me,note:text}))}catch(e){fail('備註儲存失敗。')}
+  finally{pending--;render()}
 }
-function fmt(at){const d=new Date(at);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+async function saveItem(){
+  const f=form;if(!f)return;
+  const b={title:f.title,cat:f.cat,owner:f.owner,freq:f.freq,every:f.every,wd:f.wd};
+  if(!b.title.trim()){fail('請輸入項目名稱');return}
+  pending++;
+  try{apply(await (f.id?post('/api/items/'+f.id,b,'PUT'):post('/api/items',b)));form=null;$('#note').innerHTML=''}catch(e){fail('項目儲存失敗，請確認欄位。')}
+  finally{pending--;render()}
+}
+async function removeItem(id){
+  pending++;
+  try{apply(await post('/api/items/'+id,null,'DELETE'));delId=null}catch(e){fail('刪除失敗。')}
+  finally{pending--;render()}
+}
+
+// 這個項目在目前這天要不要做
+function due(i){
+  if(i.every===0)return{due:false,flex:true};
+  if(i.wd&&!isWk(day))return{due:false};
+  const l=last[i.id];
+  if(!l)return{due:true,hint:'尚未做過',late:false};
+  const s=diff(l,day);
+  if(s>=i.every)return{due:true,hint:s>i.every?s+' 天沒做':'',late:s>i.every,since:s};
+  return{due:false,hint:'上次 '+l.slice(5)};
+}
+const isOn=i=>done[i.id]&&done[i.id].on;
+const mine=i=>i.owner===me||i.owner==='共同';
+
+function rowHtml(i,st){
+  const r=done[i.id],on=isOn(i);
+  const proxy=on&&i.owner!=='共同'&&r.by&&r.by!==i.owner;
+  const fmt=at=>{const d=new Date(at);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+  const by=on?`<span class="by">${esc(r.by)}${proxy?'代做':''} · ${fmt(r.at)} 完成</span>`:'';
+  const hint=!on&&st.hint?`<span class="${st.late?'hint':'f'}">${esc(st.hint)}</span>`:'';
+  let extra='';
+  if(noteId===i.id)extra=`<div class="extra"><input id="noteIn" maxlength="80" value="${esc(r&&r.note)}" placeholder="備註，例如：今天由宇茹代做"><button class="lnk" data-act="notesave" data-id="${i.id}">儲存</button></div>`;
+  else if(r&&r.note)extra=`<div class="extra">備註：${esc(r.note)} <button class="lnk" data-act="note" data-id="${i.id}">修改</button></div>`;
+  else if(on)extra=`<div class="extra"><button class="lnk" data-act="note" data-id="${i.id}">加備註</button></div>`;
+  let ed='';
+  if(edit)ed=`<div class="extra"><button class="lnk" data-act="edit" data-id="${i.id}">修改</button>`+(delId===i.id?`<button class="lnk danger" data-act="del" data-id="${i.id}">確定刪除？</button><button class="lnk" data-act="delno">取消</button>`:`<button class="lnk danger" data-act="del" data-id="${i.id}">刪除</button>`)+`</div>`;
+  return `<div class="item"><div class="row ${on?'done':''}"><label class="main"><input type="checkbox" data-id="${i.id}" ${on?'checked':''}><span class="t"><b>${esc(i.title)}</b><span class="f">${esc(i.freq)}</span>${hint}${by}</span></label><span class="tag ${CLS[i.owner]}">${i.owner}</span></div>${extra}${ed}</div>`;
+}
+function formHtml(){
+  const f=form,opt=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+  let ps=PRESETS.map(p=>[...p]);
+  if(!ps.some(p=>p[1]===f.every&&p[2]===f.wd))ps.push(['目前設定（'+(f.every?'每 '+f.every+' 天':'依需求')+'）',f.every,f.wd]);
+  const cur=ps.findIndex(p=>p[1]===f.every&&p[2]===f.wd);
+  return `<div class="form"><label class="w">項目名稱<input id="fTitle" maxlength="40" value="${esc(f.title)}"></label>
+<label>分類<select id="fCat">${CATS.map(c=>`<option value="${c}" ${c===f.cat?'selected':''}>${c} ${META.names[c]}</option>`).join('')}</select></label>
+<label>負責人<select id="fOwner">${opt(['羿勳','宇茹','共同'],f.owner)}</select></label>
+<label>多久做一次<select id="fSched">${ps.map((p,n)=>`<option value="${n}" ${n===cur?'selected':''}>${esc(p[0])}</option>`).join('')}</select></label>
+<label>頻率說明<input id="fFreq" maxlength="20" value="${esc(f.freq)}"></label>
+<div class="acts"><button class="btn" data-act="formcancel">取消</button><button class="pri" data-act="formsave">儲存</button></div></div>`;
+}
+const newForm=cat=>({id:'',title:'',cat,owner:'羿勳',freq:'每日',every:1,wd:0});
+
+function renderToday(){
+  const vis=items.filter(i=>who==='全部'||i.owner===who);
+  let h='',hidden=0;
+  for(const c of CATS){
+    const rows=vis.filter(i=>i.cat===c).map(i=>[i,due(i)]).filter(([i,s])=>{const show=!s.flex&&(s.due||isOn(i));if(!show&&!s.flex)hidden++;return show});
+    if(!rows.length)continue;
+    h+=`<h2>${c} ${META.names[c]}</h2><p class="q">${esc(META.quotes[c])}</p>`+rows.map(([i,s])=>rowHtml(i,s)).join('');
+  }
+  if(!h)h='<div class="empty">今天沒有要做的項目 🎉</div>';
+  const fx=vis.filter(i=>i.every===0);
+  if(fx.length)h+=`<details class="flex" ${(flexOpen||fx.some(isOn))?'open':''} data-flex><summary>依需求（${fx.length} 項，需要時再勾）</summary>`+fx.map(i=>rowHtml(i,{})).join('')+'</details>';
+  if(hidden)h+=`<p class="q" style="text-align:center;margin-top:16px">另有 ${hidden} 項還沒到下次要做的時間，在「全部」可以看到</p>`;
+  return h;
+}
+function renderAll(){
+  const vis=items.filter(i=>who==='全部'||i.owner===who);
+  let h='';
+  for(const c of CATS){
+    const rows=vis.filter(i=>i.cat===c);
+    if(!rows.length&&!edit)continue;
+    h+=`<h2>${c} ${META.names[c]}</h2><p class="q">${esc(META.quotes[c])}</p>`;
+    h+=rows.map(i=>form&&form.id===i.id?formHtml():rowHtml(i,due(i))).join('');
+    if(edit)h+=form&&!form.id&&form.cat===c?formHtml():`<button class="add" data-act="add" data-cat="${c}">＋ 在「${META.names[c]}」新增項目</button>`;
+  }
+  return h||'<div class="empty">沒有項目</div>';
+}
+function renderStats(){
+  if(!stats)return '<div class="empty">載入中…</div>';
+  const days=[];const t=new Date();for(let n=13;n>=0;n--){const d=new Date(t);d.setDate(t.getDate()-n);days.push(ymd(d))}
+  const by={};stats.rows.forEach(r=>{(by[r.day]=by[r.day]||{})[r.by]=r.c});
+  const max=Math.max(1,...days.map(d=>(by[d]&&(by[d]['羿勳']||0)+(by[d]['宇茹']||0))||0));
+  const sum=(p,n)=>days.slice(-n).reduce((a,d)=>a+((by[d]&&by[d][p])||0),0);
+  let h='<h2>近 14 天完成數</h2><div class="tot">'+['羿勳','宇茹'].map(p=>`<div class="p ${CLS[p]}"><span>${p}</span><b>${sum(p,14)}</b><span>近 7 天 ${sum(p,7)}</span></div>`).join('')+'</div>';
+  h+='<div class="chart">'+days.map(d=>{const a=(by[d]&&by[d]['羿勳'])||0,b=(by[d]&&by[d]['宇茹'])||0;return `<div class="col" title="${d}：羿勳 ${a}、宇茹 ${b}"><i class="s2" style="height:${b/max*100}%"></i><i class="s1" style="height:${a/max*100}%"></i></div>`}).join('')+'</div>';
+  h+='<div class="cap">'+days.map(d=>`<span>${+d.slice(8)}</span>`).join('')+'</div>';
+  h+='<div class="leg"><span><b style="background:var(--yx)"></b>羿勳</span><span><b style="background:var(--yr)"></b>宇茹</span><span>（顯示誰勾的）</span></div>';
+  const today=ymd(new Date());
+  const late=stats.items.filter(i=>i.every>0).map(i=>{const l=stats.last[i.id];const s=l?diff(l,today):null;return{i,l,s,over:s==null?9999:s-i.every}}).filter(x=>x.over>0).sort((a,b)=>b.over-a.over).slice(0,10);
+  h+='<h2>最久沒做的項目</h2>';
+  h+=late.length?late.map(x=>`<div class="late"><div>${esc(x.i.title)}<br><span>${x.i.owner} · ${esc(x.i.freq)}</span></div><span>${x.s==null?'從未完成':x.s+' 天沒做'}</span></div>`).join(''):'<div class="empty">全部都在週期內</div>';
+  return h;
+}
 function render(){
   const wk='日一二三四五六'[new Date(day+'T00:00:00').getDay()];
   $('#dl').textContent=day+'（週'+wk+'）'+(day===ymd(new Date())?' · 今天':'');
-  $('#prog').innerHTML=['羿勳','宇茹','共同'].map(w=>{
-    const a=DATA.items.filter(i=>i.o===w),n=a.filter(i=>done[i.id]&&done[i.id].on).length,p=a.length?Math.round(n/a.length*100):0;
-    return `<div class="p ${CLS[w]}"><span>${w}</span><b>${n}/${a.length}</b><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('');
-  $('#tabs').innerHTML=WHO.map(w=>`<button role="tab" aria-selected="${w===who}" class="${w===who?'on':''}" data-w="${w}">${w}</button>`).join('');
-  let h='';
-  for(const c of Object.keys(DATA.names)){
-    const it=DATA.items.filter(i=>i.c===c&&(who==='全部'||i.o===who));
-    if(!it.length)continue;
-    h+=`<h2>${c} ${DATA.names[c]}</h2><p class="q">${esc(DATA.quotes[c])}</p>`;
-    h+=it.map(i=>{const r=done[i.id],on=r&&r.on;
-      const by=on&&r.at?`<span class="by">${esc(r.by||'')}${r.by?' · ':''}${fmt(r.at)} 完成</span>`:'';
-      return `<label class="row ${on?'done':''}"><input type="checkbox" data-id="${i.id}" ${on?'checked':''} ${canWrite?'':'disabled'}><span class="t"><b>${esc(i.t)}</b><span class="f">${esc(i.f)}</span>${by}</span><span class="tag ${CLS[i.o]}">${i.o}</span></label>`}).join('');
+  $('#views').innerHTML=[['today','今天'],['all','全部'],['stats','統計']].map(([k,n])=>`<button data-view="${k}" class="${view===k?'on':''}">${n}</button>`).join('')+`<button data-act="edit-toggle" class="${edit?'on':''}">${edit?'完成編輯':'編輯項目'}</button>`;
+  const stat=view!=='stats';
+  $('#prog').hidden=!stat;$('#tabs').hidden=!stat;$('#warn').hidden=!stat;
+  $('#me').innerHTML='我是 '+['羿勳','宇茹'].map(n=>`<button data-me="${n}" class="${n===me?'on':''}">${n}</button>`).join('');
+  if(stat){
+    $('#prog').innerHTML=['羿勳','宇茹','共同'].map(w=>{
+      const a=items.filter(i=>i.owner===w&&(view==='all'||!due(i).flex&&(due(i).due||isOn(i)))),n=a.filter(isOn).length,p=a.length?Math.round(n/a.length*100):0;
+      return `<div class="p ${CLS[w]}"><span>${w}</span><b>${n}/${a.length}</b><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('');
+    $('#tabs').innerHTML=WHO.map(w=>`<button role="tab" aria-selected="${w===who}" class="${w===who?'on':''}" data-w="${w}">${w}</button>`).join('');
+    // 提醒：只算自己和共同的項目
+    let w='';
+    if(day===ymd(new Date())){
+      const left=items.filter(i=>mine(i)&&i.every===1&&due(i).due&&!isOn(i)).length;
+      const late=items.filter(i=>mine(i)&&i.every>1&&due(i).late&&!isOn(i)).length;
+      if(left||late)w=`<div class="warn"><span><b>${me}</b> 今天還有 <b>${left}</b> 項每日項目沒做</span>${late?`<span>另有 <b>${late}</b> 項已超過週期</span>`:''}</div>`;
+      else if(items.length)w='<div class="warn"><span>今天的每日項目都完成了，辛苦了。</span></div>';
+    }
+    $('#warn').innerHTML=w;
   }
-  $('#list').innerHTML=h||'<div class="empty">沒有項目</div>';
+  $('#list').innerHTML=view==='stats'?renderStats():(view==='all'||edit)?renderAll():renderToday();
+  if(noteId){const n=$('#noteIn');if(n&&document.activeElement!==n)n.focus()}
 }
-document.addEventListener('click',e=>{const b=e.target.closest('button[data-w]');if(!b)return;who=b.dataset.w;try{localStorage.setItem('myhome-who',who)}catch(_){}render()});
-document.addEventListener('click',e=>{const b=e.target.closest('button[data-me]');if(!b)return;me=b.dataset.me;try{localStorage.setItem('myhome-me',me)}catch(_){}renderMe()});
-document.addEventListener('change',e=>{const id=e.target.dataset.id;if(id)toggle(id,e.target.checked)});
-function go(d){day=d;done={};render();load()}
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.w){who=t.dataset.w;try{localStorage.setItem('myhome-who',who)}catch(_){};render();return}
+  if(t.dataset.view){view=t.dataset.view;if(view==='stats')loadStats();render();return}
+  if(t.dataset.me){me=t.dataset.me;try{localStorage.setItem('myhome-me',me)}catch(_){};render();return}
+  const a=t.dataset.act,id=t.dataset.id;
+  if(a==='edit-toggle'){edit=!edit;form=null;delId=null;if(edit&&view==='stats')view='all';render()}
+  else if(a==='add'){form=newForm(t.dataset.cat);render();$('#fTitle')&&$('#fTitle').focus()}
+  else if(a==='edit'){const i=items.find(x=>x.id===id);form={...i};render()}
+  else if(a==='formcancel'){form=null;render()}
+  else if(a==='formsave')saveItem();
+  else if(a==='del'){if(delId===id)removeItem(id);else{delId=id;render()}}
+  else if(a==='delno'){delId=null;render()}
+  else if(a==='note'){noteId=id;render()}
+  else if(a==='notesave')saveNote(id,$('#noteIn').value);
+});
+document.addEventListener('input',e=>{
+  if(!form)return;const t=e.target;
+  if(t.id==='fTitle')form.title=t.value;
+  else if(t.id==='fFreq')form.freq=t.value;
+  else if(t.id==='fCat')form.cat=t.value;
+  else if(t.id==='fOwner')form.owner=t.value;
+  else if(t.id==='fSched'){
+    let ps=PRESETS.map(p=>[...p]);if(!ps.some(p=>p[1]===form.every&&p[2]===form.wd))ps.push(['',form.every,form.wd]);
+    const p=ps[+t.value];if(p){const wasPreset=PRESETS.some(x=>x[0]===form.freq)||!form.freq;form.every=p[1];form.wd=p[2];if(p[0]&&wasPreset){form.freq=p[0];$('#fFreq').value=p[0]}}
+  }
+});
+document.addEventListener('change',e=>{const id=e.target.dataset.id;if(id&&e.target.type==='checkbox')toggle(id,e.target.checked)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='noteIn')saveNote(noteId,e.target.value);if(e.key==='Escape'&&noteId){noteId=null;render()}});
+document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details[data-flex]'))flexOpen=e.target.open},true);
+function go(d){day=d;done={};last={};render();load()}
 function shift(n){const d=new Date(day+'T00:00:00');d.setDate(d.getDate()+n);go(ymd(d))}
 $('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);$('#today').onclick=()=>go(ymd(new Date()));
 let lastToday=ymd(new Date());
 setInterval(()=>{const t=ymd(new Date());if(t!==lastToday){if(day===lastToday)go(t);lastToday=t}},60000);
-setInterval(()=>{if(!document.hidden&&!pending)load()},5000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
-renderMe();render();load();
+const busy=()=>pending||form||noteId||edit&&delId;
+setInterval(()=>{if(!document.hidden&&!busy()){view==='stats'?loadStats():load()}},5000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy())load()});
+render();load();
 </script>
 </body>
 </html>
