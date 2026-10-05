@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>家庭分工日誌</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--ink:#2b2622;--mute:#8a8178;--line:#ece5da;--acc:#d9822b;--yx:#3b82a0;--yr:#c2577a;--both:#6b8f5e}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1a18;--card:#26231f;--ink:#f0ebe4;--mute:#a39a8f;--line:#3a3530;--acc:#f0a050;--yx:#6bb3d1;--yr:#e27ea0;--both:#8fb881}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:8px 0 2px}
+.sub{color:var(--mute);font-size:14px;margin:0 0 14px}
+.date{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.date button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer}
+.date .d{flex:1;text-align:center;font-weight:600}
+.prog{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.p{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+.p b{display:block;font-size:20px}.p span{font-size:12px;color:var(--mute)}
+.bar{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc);width:0;transition:width .25s}
+.tabs,.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px}
+.tabs button,.chips button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font-size:14px;cursor:pointer}
+.tabs button.on,.chips button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+h2{font-size:16px;margin:18px 0 2px}.q{font-size:12px;color:var(--mute);margin:0 0 8px}
+.row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:6px;cursor:pointer}
+.row input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.row .t{flex:1}.row.done .t{text-decoration:line-through;color:var(--mute)}
+.f{font-size:12px;color:var(--mute);display:block}
+.tag{font-size:12px;color:#fff;border-radius:999px;padding:2px 9px;flex:none}
+.o-羿勳{background:var(--yx)}.o-宇茹{background:var(--yr)}.o-共同{background:var(--both)}
+.foot{margin:24px 0;text-align:center;font-size:13px;color:var(--mute)}
+.foot button{border:0;background:none;color:var(--mute);text-decoration:underline;cursor:pointer;font-size:13px}
+.empty{text-align:center;color:var(--mute);padding:30px}
+</style>
+</head>
+<body>
+<main>
+<h1>🏠 家庭分工日誌</h1>
+<p class="sub">每天打勾，隔天自動換新的一頁</p>
+<div class="date"><button id="prev">‹</button><div class="d" id="dl"></div><button id="next">›</button><button id="today">今天</button></div>
+<div class="prog" id="prog"></div>
+<div class="tabs" id="tabs"></div>
+<div class="chips" id="chips"></div>
+<div id="list"></div>
+<div class="foot"><button id="reset">清除這天的勾選</button><br>勾選紀錄儲存在此裝置瀏覽器中</div>
+</main>
+<script>
+const DATA={
+ "items": [
+  {
+   "c": "食",
+   "t": "洗碗",
+   "o": "羿勳",
+   "f": "每日／用餐後"
+  },
+  {
+   "c": "食",
+   "t": "餐桌收拾",
+   "o": "羿勳",
+   "f": "每日／用餐後"
+  },
+  {
+   "c": "食",
+   "t": "收廚房",
+   "o": "宇茹",
+   "f": "每日／用餐後"
+  },
+  {
+   "c": "食",
+   "t": "煮飯",
+   "o": "宇茹",
+   "f": "依家庭需求"
+  },
+  {
+   "c": "食",
+   "t": "整理冰箱與清理過期食品",
+   "o": "宇茹",
+   "f": "每週／每月"
+  },
+  {
+   "c": "食",
+   "t": "買菜與食材採買",
+   "o": "宇茹",
+   "f": "每週／依需求"
+  },
+  {
+   "c": "衣",
+   "t": "把衣服拿去洗",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "衣",
+   "t": "把衣服從洗衣機拿出來烘",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "衣",
+   "t": "把衣服晾起來",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "衣",
+   "t": "把烘好的衣服拿出",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "衣",
+   "t": "把衣服掛好／收進衣櫃",
+   "o": "宇茹",
+   "f": "依需求"
+  },
+  {
+   "c": "衣",
+   "t": "更換與清洗床單、被套",
+   "o": "宇茹",
+   "f": "每週／每兩週"
+  },
+  {
+   "c": "住",
+   "t": "倒垃圾",
+   "o": "羿勳",
+   "f": "每日"
+  },
+  {
+   "c": "住",
+   "t": "垃圾分類與資源回收",
+   "o": "羿勳",
+   "f": "每週"
+  },
+  {
+   "c": "住",
+   "t": "讓石頭掃地",
+   "o": "羿勳",
+   "f": "三天一次"
+  },
+  {
+   "c": "住",
+   "t": "清理石頭集塵盒／刷具",
+   "o": "羿勳",
+   "f": "每週／依提示"
+  },
+  {
+   "c": "住",
+   "t": "浴室清潔",
+   "o": "羿勳",
+   "f": "每週"
+  },
+  {
+   "c": "住",
+   "t": "馬桶清潔",
+   "o": "羿勳",
+   "f": "每週"
+  },
+  {
+   "c": "住",
+   "t": "補充家庭日用品",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "住",
+   "t": "整理鞋櫃",
+   "o": "宇茹",
+   "f": "每月／每季"
+  },
+  {
+   "c": "住",
+   "t": "整理儲藏空間",
+   "o": "宇茹",
+   "f": "每季"
+  },
+  {
+   "c": "行",
+   "t": "訂機票",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "育",
+   "t": "暖暖簽聯絡簿",
+   "o": "羿勳",
+   "f": "上學日"
+  },
+  {
+   "c": "育",
+   "t": "準備暖暖上學用品",
+   "o": "羿勳",
+   "f": "上學日前"
+  },
+  {
+   "c": "育",
+   "t": "整理暖暖書包與替換衣物",
+   "o": "羿勳",
+   "f": "上學日／每週"
+  },
+  {
+   "c": "育",
+   "t": "收玩具",
+   "o": "羿勳",
+   "f": "每日"
+  },
+  {
+   "c": "育",
+   "t": "幫暖暖洗澡",
+   "o": "宇茹",
+   "f": "每日"
+  },
+  {
+   "c": "育",
+   "t": "暖暖睡前陪讀／哄睡",
+   "o": "宇茹",
+   "f": "每日"
+  },
+  {
+   "c": "育",
+   "t": "接送暖暖",
+   "o": "共同",
+   "f": "上學日"
+  },
+  {
+   "c": "育",
+   "t": "陪暖暖",
+   "o": "共同",
+   "f": "每日"
+  },
+  {
+   "c": "樂",
+   "t": "整理露營用品",
+   "o": "宇茹",
+   "f": "露營前後"
+  },
+  {
+   "c": "寵",
+   "t": "清貓砂盆和地板",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "寵",
+   "t": "補充貓砂",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "寵",
+   "t": "補充貓糧與飲水",
+   "o": "羿勳",
+   "f": "每日／依需求"
+  },
+  {
+   "c": "寵",
+   "t": "補充貓糧與貓砂庫存",
+   "o": "羿勳",
+   "f": "依需求"
+  },
+  {
+   "c": "寵",
+   "t": "餵貓吃點心",
+   "o": "宇茹",
+   "f": "依需求"
+  },
+  {
+   "c": "寵",
+   "t": "清洗貓咪餐碗與水碗",
+   "o": "宇茹",
+   "f": "每日／每週"
+  },
+  {
+   "c": "寵",
+   "t": "梳毛",
+   "o": "宇茹",
+   "f": "每日"
+  },
+  {
+   "c": "寵",
+   "t": "剪指甲",
+   "o": "宇茹",
+   "f": "依需求"
+  }
+ ],
+ "quotes": {
+  "食": "一起準備每一餐，讓家的味道成為日常裡最踏實的幸福。",
+  "衣": "一件件洗淨收好的衣服，藏著我們對彼此細心的照顧。",
+  "住": "一起整理我們的家，讓每個角落都住著安心與溫暖。",
+  "行": "一起安排每一次出發與抵達，讓陪伴成為最安心的路。",
+  "育": "孩子是我們愛的結晶，陪伴她成長是我們共同的幸福。",
+  "樂": "一起收藏生活裡的小快樂，也一起創造家的美好回憶。",
+  "寵": "毛孩也是家人，我們一起守護牠每天的安心與健康。"
+ },
+ "names": {
+  "食": "飲食",
+  "衣": "衣物",
+  "住": "居家",
+  "行": "出行",
+  "育": "育兒",
+  "樂": "休閒",
+  "寵": "寵物"
+ }
+};
+const WHO=['全部','羿勳','宇茹','共同'];
+const $=s=>document.querySelector(s);
+let day=ymd(new Date()),who='全部',cat='全部';
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function shift(n){const d=new Date(day+'T00:00:00');d.setDate(d.getDate()+n);day=ymd(d);render()}
+const key=()=>'myhome-done-'+day;
+function load(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch(e){return{}}}
+function save(o){try{localStorage.setItem(key(),JSON.stringify(o))}catch(e){}}
+function render(){
+  const done=load(),wk='日一二三四五六'[new Date(day+'T00:00:00').getDay()];
+  $('#dl').textContent=day+'（週'+wk+'）'+(day===ymd(new Date())?' · 今天':'');
+  // progress
+  $('#prog').innerHTML=['羿勳','宇茹','共同'].map(w=>{
+    const a=DATA.items.filter(i=>i.o===w),n=a.filter(i=>done[i.t]).length,p=a.length?Math.round(n/a.length*100):0;
+    return `<div class="p"><span>${w}</span><b>${n}/${a.length}</b><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('');
+  $('#tabs').innerHTML=WHO.map(w=>`<button class="${w===who?'on':''}" data-w="${w}">${w}</button>`).join('');
+  $('#chips').innerHTML=['全部',...Object.keys(DATA.names)].map(c=>`<button class="${c===cat?'on':''}" data-c="${c}">${c==='全部'?c:c+' '+DATA.names[c]}</button>`).join('');
+  let h='';
+  for(const c of Object.keys(DATA.names)){
+    if(cat!=='全部'&&cat!==c)continue;
+    const it=DATA.items.filter(i=>i.c===c&&(who==='全部'||i.o===who));
+    if(!it.length)continue;
+    h+=`<h2>${c} ${DATA.names[c]}</h2><p class="q">${DATA.quotes[c]}</p>`;
+    h+=it.map(i=>`<label class="row ${done[i.t]?'done':''}"><input type="checkbox" data-t="${i.t}" ${done[i.t]?'checked':''}><span class="t">${i.t}<span class="f">${i.f}</span></span><span class="tag o-${i.o}">${i.o}</span></label>`).join('');
+  }
+  $('#list').innerHTML=h||'<div class="empty">沒有項目</div>';
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.w){who=b.dataset.w;render()}
+  else if(b.dataset.c){cat=b.dataset.c;render()}
+});
+document.addEventListener('change',e=>{
+  const t=e.target.dataset.t;if(!t)return;
+  const o=load();e.target.checked?o[t]=1:delete o[t];save(o);render();
+});
+$('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);
+$('#today').onclick=()=>{day=ymd(new Date());render()};
+$('#reset').onclick=()=>{if(confirm('清除'+day+'的勾選？')){save({});render()}};
+// 跨午夜自動換日
+setInterval(()=>{const t=ymd(new Date());if(window._t&&window._t!==t&&day===window._t){day=t;render()}window._t=t},60000);window._t=ymd(new Date());
+render();
+</script>
+</body>
+</html>
