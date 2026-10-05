@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>家庭分工日誌</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* 版面：單欄清單，上方日期與三人進度，下方依分類分組的勾選列 */
+:root{
+  --bg:#f4f6f7;--card:#fff;--ink:#1d2a30;--mute:#667780;--line:#dde4e8;--acc:#1f6f78;--accsoft:#dcecee;
+  --yx:#2f6fa8;--yr:#b8467a;--both:#4f8a4b;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12191c;--card:#1b2428;--ink:#e8eef0;--mute:#93a4ac;--line:#2c3a40;--acc:#58b4be;--accsoft:#1f3a3f;
+  --yx:#6fa8dd;--yr:#e07fae;--both:#86bd82;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12191c;--card:#1b2428;--ink:#e8eef0;--mute:#93a4ac;--line:#2c3a40;--acc:#58b4be;--accsoft:#1f3a3f;
+  --yx:#6fa8dd;--yr:#e07fae;--both:#86bd82;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--font);margin:0;padding-inline:16px;padding-block:20px 40px}
+main{max-width:640px;margin:0 auto}
+h1{font-size:22px;margin:0 0 2px;letter-spacing:.02em}
+.sub{color:var(--mute);font-size:14px;margin:0 0 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.live{font-size:12px;border-radius:999px;padding:1px 9px;background:var(--accsoft);color:var(--acc)}
+.live.off{background:var(--line);color:var(--mute)}
+.date{display:flex;gap:8px;margin-bottom:14px}
+.date .d{flex:1;min-width:0;text-align:center;font-weight:700;align-self:center}
+button{font:inherit;color:var(--ink);cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 14px;font-size:15px}
+.btn:focus-visible,.tabs button:focus-visible,.row:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.prog{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.p{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.p span{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.p span::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+.p b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.bar{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--c);transition:width .25s}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+.tabs button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;font-size:14px}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+h2{font-size:16px;margin:20px 0 2px}
+.q{font-size:13px;color:var(--mute);margin:0 0 8px}
+.row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:6px;cursor:pointer}
+.row input{width:22px;height:22px;accent-color:var(--acc);flex:none;margin:0}
+.row .t{flex:1;min-width:0}
+.row.done .t b{text-decoration:line-through;color:var(--mute)}
+.t b{font-weight:500}
+.f,.by{display:block;font-size:12px;color:var(--mute)}
+.by{color:var(--acc)}
+.tag{font-size:12px;color:#fff;border-radius:999px;padding:2px 10px;flex:none;background:var(--c)}
+.o1{--c:var(--yx)}.o2{--c:var(--yr)}.o3{--c:var(--both)}
+.note{background:var(--accsoft);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.me{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--mute);margin-bottom:12px}
+.me button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 14px;font-size:14px}
+.me button.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.empty{text-align:center;color:var(--mute);padding:30px}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<h1>家庭分工日誌</h1>
+<p class="sub"><span>兩個人的手機即時同步，隔天自動換新的一頁</span><span class="live off" id="live">連線中</span></p>
+<div class="date"><button class="btn" id="prev" aria-label="前一天">‹</button><div class="d" id="dl"></div><button class="btn" id="next" aria-label="後一天">›</button><button class="btn" id="today">今天</button></div>
+<div class="me" id="me"></div>
+<div id="note"></div>
+<div class="prog" id="prog"></div>
+<div class="tabs" id="tabs" role="tablist"></div>
+<div id="list"></div>
+</main>
+<script>
+const DATA={"items": [{"c": "食", "t": "洗碗", "o": "羿勳", "f": "每日／用餐後", "id": "i01"}, {"c": "食", "t": "餐桌收拾", "o": "羿勳", "f": "每日／用餐後", "id": "i02"}, {"c": "食", "t": "收廚房", "o": "宇茹", "f": "每日／用餐後", "id": "i03"}, {"c": "食", "t": "煮飯", "o": "宇茹", "f": "依家庭需求", "id": "i04"}, {"c": "食", "t": "整理冰箱與清理過期食品", "o": "宇茹", "f": "每週／每月", "id": "i05"}, {"c": "食", "t": "買菜與食材採買", "o": "宇茹", "f": "每週／依需求", "id": "i06"}, {"c": "衣", "t": "把衣服拿去洗", "o": "羿勳", "f": "依需求", "id": "i07"}, {"c": "衣", "t": "把衣服從洗衣機拿出來烘", "o": "羿勳", "f": "依需求", "id": "i08"}, {"c": "衣", "t": "把衣服晾起來", "o": "羿勳", "f": "依需求", "id": "i09"}, {"c": "衣", "t": "把烘好的衣服拿出", "o": "羿勳", "f": "依需求", "id": "i10"}, {"c": "衣", "t": "把衣服掛好／收進衣櫃", "o": "宇茹", "f": "依需求", "id": "i11"}, {"c": "衣", "t": "更換與清洗床單、被套", "o": "宇茹", "f": "每週／每兩週", "id": "i12"}, {"c": "住", "t": "倒垃圾", "o": "羿勳", "f": "每日", "id": "i13"}, {"c": "住", "t": "垃圾分類與資源回收", "o": "羿勳", "f": "每週", "id": "i14"}, {"c": "住", "t": "讓石頭掃地", "o": "羿勳", "f": "三天一次", "id": "i15"}, {"c": "住", "t": "清理石頭集塵盒／刷具", "o": "羿勳", "f": "每週／依提示", "id": "i16"}, {"c": "住", "t": "浴室清潔", "o": "羿勳", "f": "每週", "id": "i17"}, {"c": "住", "t": "馬桶清潔", "o": "羿勳", "f": "每週", "id": "i18"}, {"c": "住", "t": "補充家庭日用品", "o": "羿勳", "f": "依需求", "id": "i19"}, {"c": "住", "t": "整理鞋櫃", "o": "宇茹", "f": "每月／每季", "id": "i20"}, {"c": "住", "t": "整理儲藏空間", "o": "宇茹", "f": "每季", "id": "i21"}, {"c": "行", "t": "訂機票", "o": "羿勳", "f": "依需求", "id": "i22"}, {"c": "育", "t": "暖暖簽聯絡簿", "o": "羿勳", "f": "上學日", "id": "i23"}, {"c": "育", "t": "準備暖暖上學用品", "o": "羿勳", "f": "上學日前", "id": "i24"}, {"c": "育", "t": "整理暖暖書包與替換衣物", "o": "羿勳", "f": "上學日／每週", "id": "i25"}, {"c": "育", "t": "收玩具", "o": "羿勳", "f": "每日", "id": "i26"}, {"c": "育", "t": "幫暖暖洗澡", "o": "宇茹", "f": "每日", "id": "i27"}, {"c": "育", "t": "暖暖睡前陪讀／哄睡", "o": "宇茹", "f": "每日", "id": "i28"}, {"c": "育", "t": "接送暖暖", "o": "共同", "f": "上學日", "id": "i29"}, {"c": "育", "t": "陪暖暖", "o": "共同", "f": "每日", "id": "i30"}, {"c": "樂", "t": "整理露營用品", "o": "宇茹", "f": "露營前後", "id": "i31"}, {"c": "寵", "t": "清貓砂盆和地板", "o": "羿勳", "f": "依需求", "id": "i32"}, {"c": "寵", "t": "補充貓砂", "o": "羿勳", "f": "依需求", "id": "i33"}, {"c": "寵", "t": "補充貓糧與飲水", "o": "羿勳", "f": "每日／依需求", "id": "i34"}, {"c": "寵", "t": "補充貓糧與貓砂庫存", "o": "羿勳", "f": "依需求", "id": "i35"}, {"c": "寵", "t": "餵貓吃點心", "o": "宇茹", "f": "依需求", "id": "i36"}, {"c": "寵", "t": "清洗貓咪餐碗與水碗", "o": "宇茹", "f": "每日／每週", "id": "i37"}, {"c": "寵", "t": "梳毛", "o": "宇茹", "f": "每日", "id": "i38"}, {"c": "寵", "t": "剪指甲", "o": "宇茹", "f": "依需求", "id": "i39"}], "quotes": {"食": "一起準備每一餐，讓家的味道成為日常裡最踏實的幸福。", "衣": "一件件洗淨收好的衣服，藏著我們對彼此細心的照顧。", "住": "一起整理我們的家，讓每個角落都住著安心與溫暖。", "行": "一起安排每一次出發與抵達，讓陪伴成為最安心的路。", "育": "孩子是我們愛的結晶，陪伴她成長是我們共同的幸福。", "樂": "一起收藏生活裡的小快樂，也一起創造家的美好回憶。", "寵": "毛孩也是家人，我們一起守護牠每天的安心與健康。"}, "names": {"食": "飲食", "衣": "衣物", "住": "居家", "行": "出行", "育": "育兒", "樂": "休閒", "寵": "寵物"}};
+const WHO=['全部','羿勳','宇茹','共同'],CLS={'羿勳':'o1','宇茹':'o2','共同':'o3'};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+let day=ymd(new Date()),who='全部',done={},me='',pending=0,mode='connecting';const canWrite=true;
+try{const w=localStorage.getItem('myhome-who');if(WHO.includes(w))who=w;me=localStorage.getItem('myhome-me')||''}catch(e){}
+if(!me)me=who==='宇茹'?'宇茹':'羿勳';
+
+function setMode(m){mode=m;const l=$('#live');l.className='live'+(m==='live'?'':' off');l.textContent=m==='live'?'已同步':m==='off'?'離線':'連線中'}
+async function load(){
+  const myDay=day;
+  try{
+    const r=await fetch('/api/day/'+myDay,{cache:'no-store'});
+    if(!r.ok)throw 0;
+    const j=await r.json();
+    if(myDay!==day||pending)return;
+    done=j.done||{};setMode('live');render();
+  }catch(e){setMode('off')}
+}
+async function toggle(id,on){
+  const rec={on,by:me,at:Date.now()};
+  done={...done,[id]:rec};render();pending++;
+  try{
+    const r=await fetch('/api/day/'+day,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id,on,by:me})});
+    if(!r.ok)throw 0;
+    const j=await r.json();done=j.done||done;setMode('live');
+  }catch(e){setMode('off');$('#note').innerHTML='<div class="note">儲存失敗，請檢查網路後再勾一次。</div>'}
+  finally{pending--;render()}
+}
+function renderMe(){
+  $('#me').innerHTML='我是 '+['羿勳','宇茹'].map(n=>`<button data-me="${n}" class="${n===me?'on':''}">${n}</button>`).join('');
+}
+function fmt(at){const d=new Date(at);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function render(){
+  const wk='日一二三四五六'[new Date(day+'T00:00:00').getDay()];
+  $('#dl').textContent=day+'（週'+wk+'）'+(day===ymd(new Date())?' · 今天':'');
+  $('#prog').innerHTML=['羿勳','宇茹','共同'].map(w=>{
+    const a=DATA.items.filter(i=>i.o===w),n=a.filter(i=>done[i.id]&&done[i.id].on).length,p=a.length?Math.round(n/a.length*100):0;
+    return `<div class="p ${CLS[w]}"><span>${w}</span><b>${n}/${a.length}</b><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('');
+  $('#tabs').innerHTML=WHO.map(w=>`<button role="tab" aria-selected="${w===who}" class="${w===who?'on':''}" data-w="${w}">${w}</button>`).join('');
+  let h='';
+  for(const c of Object.keys(DATA.names)){
+    const it=DATA.items.filter(i=>i.c===c&&(who==='全部'||i.o===who));
+    if(!it.length)continue;
+    h+=`<h2>${c} ${DATA.names[c]}</h2><p class="q">${esc(DATA.quotes[c])}</p>`;
+    h+=it.map(i=>{const r=done[i.id],on=r&&r.on;
+      const by=on&&r.at?`<span class="by">${esc(r.by||'')}${r.by?' · ':''}${fmt(r.at)} 完成</span>`:'';
+      return `<label class="row ${on?'done':''}"><input type="checkbox" data-id="${i.id}" ${on?'checked':''} ${canWrite?'':'disabled'}><span class="t"><b>${esc(i.t)}</b><span class="f">${esc(i.f)}</span>${by}</span><span class="tag ${CLS[i.o]}">${i.o}</span></label>`}).join('');
+  }
+  $('#list').innerHTML=h||'<div class="empty">沒有項目</div>';
+}
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-w]');if(!b)return;who=b.dataset.w;try{localStorage.setItem('myhome-who',who)}catch(_){}render()});
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-me]');if(!b)return;me=b.dataset.me;try{localStorage.setItem('myhome-me',me)}catch(_){}renderMe()});
+document.addEventListener('change',e=>{const id=e.target.dataset.id;if(id)toggle(id,e.target.checked)});
+function go(d){day=d;done={};render();load()}
+function shift(n){const d=new Date(day+'T00:00:00');d.setDate(d.getDate()+n);go(ymd(d))}
+$('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);$('#today').onclick=()=>go(ymd(new Date()));
+let lastToday=ymd(new Date());
+setInterval(()=>{const t=ymd(new Date());if(t!==lastToday){if(day===lastToday)go(t);lastToday=t}},60000);
+setInterval(()=>{if(!document.hidden&&!pending)load()},5000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+renderMe();render();load();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS done (
+  day  TEXT NOT NULL,
+  id   TEXT NOT NULL,
+  on_  INTEGER NOT NULL,
+  by_  TEXT NOT NULL,
+  at_  INTEGER NOT NULL,
+  PRIMARY KEY (day, id)
+);
