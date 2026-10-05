@@ -96,6 +96,10 @@ details.flex summary{cursor:pointer;font-weight:700;font-size:16px;padding:4px 0
 .late{display:flex;justify-content:space-between;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:14px}
 .late span{color:var(--mute);font-size:12px;flex:none}
 @media (max-width:420px){.form{grid-template-columns:1fr}}
+.askbtn{border:1px solid var(--acc);background:var(--card);color:var(--acc);border-radius:999px;padding:7px 16px;min-height:38px;font-size:14px;font-weight:500}
+.askbtn:active{background:var(--accsoft)}
+.askbtn.ghost{border-color:var(--line);color:var(--mute)}
+.extra.ask{padding:6px 0 0 0;gap:10px;font-size:13px;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -212,8 +216,8 @@ function rowHtml(i,st){
   else if(r&&r.note)extra=`<div class="extra">備註：${esc(r.note)} <button class="lnk" data-act="note" data-id="${i.id}">修改</button></div>`;
   else if(on)extra=`<div class="extra"><button class="lnk" data-act="note" data-id="${i.id}">加備註</button></div>`;
   let asg='';
-  if(as)asg=`<div class="extra">${esc(as.by)}請${esc(as.to)}今天做 <button class="lnk" data-act="assign" data-id="${i.id}" data-to="">換回去</button></div>`;
-  else if(!on&&ef!==other())asg=`<div class="extra"><button class="lnk" data-act="assign" data-id="${i.id}" data-to="${other()}">請${other()}做</button></div>`;
+  if(as)asg=`<div class="extra ask">${esc(as.by)}請${esc(as.to)}今天做 <button class="askbtn ghost" data-act="assign" data-id="${i.id}" data-to="">換回去</button></div>`;
+  else if(!on&&ef!==other())asg=`<div class="extra ask"><button class="askbtn" data-act="assign" data-id="${i.id}" data-to="${other()}">請${other()}做</button></div>`;
   let ed='';
   if(edit)ed=`<div class="extra"><button class="lnk" data-act="edit" data-id="${i.id}">修改</button>`+(delId===i.id?`<button class="lnk danger" data-act="del" data-id="${i.id}">確定刪除？</button><button class="lnk" data-act="delno">取消</button>`:`<button class="lnk danger" data-act="del" data-id="${i.id}">刪除</button>`)+`</div>`;
   return `<div class="item"><div class="row ${on?'done':''}"><label class="main"><input type="checkbox" data-id="${i.id}" ${on?'checked':''}><span class="t"><b>${esc(i.title)}</b><span class="f">${esc(i.freq)}</span>${hint}${by}</span></label><span class="tag ${CLS[ef]}">${ef}${as?'（今天）':''}</span></div>${extra}${asg}${ed}</div>`;
