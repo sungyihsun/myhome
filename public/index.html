@@ -102,8 +102,11 @@ details.flex summary{cursor:pointer;font-weight:700;font-size:16px;padding:4px 0
 <main>
 <h1>家庭分工日誌</h1>
 <p class="sub"><span>兩個人的手機即時同步，隔天自動換新的一頁</span><span class="live off" id="live">連線中</span></p>
+<section id="login" hidden><p id="loginMsg" class="note"></p><button class="pri" id="loginBtn" style="width:100%;padding:14px;font-size:17px"></button></section>
+<div id="app" hidden>
 <div class="date"><button class="btn" id="prev" aria-label="前一天">‹</button><div class="d" id="dl"></div><button class="btn" id="next" aria-label="後一天">›</button><button class="btn" id="today">今天</button></div>
 <div class="me" id="me"></div>
+<div id="invite"></div>
 <div class="me" id="meals"></div>
 <div id="note"></div>
 <div class="views" id="views"></div>
@@ -111,6 +114,7 @@ details.flex summary{cursor:pointer;font-weight:700;font-size:16px;padding:4px 0
 <div class="prog" id="prog"></div>
 <div class="tabs" id="tabs" role="tablist"></div>
 <div id="list"></div>
+</div>
 </main>
 <script>
 const META={"quotes": {"食": "一起準備每一餐，讓家的味道成為日常裡最踏實的幸福。", "衣": "一件件洗淨收好的衣服，藏著我們對彼此細心的照顧。", "住": "一起整理我們的家，讓每個角落都住著安心與溫暖。", "行": "一起安排每一次出發與抵達，讓陪伴成為最安心的路。", "育": "孩子是我們愛的結晶，陪伴她成長是我們共同的幸福。", "樂": "一起收藏生活裡的小快樂，也一起創造家的美好回憶。", "寵": "毛孩也是家人，我們一起守護牠每天的安心與健康。"}, "names": {"食": "飲食", "衣": "衣物", "住": "居家", "行": "出行", "育": "育兒", "樂": "休閒", "寵": "寵物"}};
@@ -124,23 +128,25 @@ const diff=(a,b)=>Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00
 const isWk=d=>{const w=new Date(d+'T00:00:00').getDay();return w>0&&w<6};
 let day=ymd(new Date()),who='全部',view='today',me='',items=[],done={},last={},stats=null,meals=true;
 let edit=false,form=null,delId=null,noteId=null,pending=0,mode='connecting',flexOpen=false;
-try{const w=localStorage.getItem('myhome-who');if(WHO.includes(w))who=w;me=localStorage.getItem('myhome-me')||''}catch(e){}
-if(!me)me='羿勳';
+try{const w=localStorage.getItem('myhome-who');if(WHO.includes(w))who=w;}catch(e){}
+let authed=false;
 
 function setMode(m){mode=m;const l=$('#live');l.className='live'+(m==='live'?'':' off');l.textContent=m==='live'?'已同步':m==='off'?'離線':'連線中'}
-const post=(u,b,m='POST')=>fetch(u,{method:m,headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+const post=(u,b,m='POST')=>fetch(u,{method:m,headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(async r=>{
+  if(r.status===401&&authed){needLogin();throw new Error('401')}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.status);return j});
 function apply(j){if(j.items)items=j.items;if(j.done)done=j.done;if(j.last)last=j.last;if('meals' in j)meals=j.meals}
 async function load(){
   const my=day;
   try{
-    const r=await fetch('/api/state/'+my,{cache:'no-store'});if(!r.ok)throw 0;
+    const r=await fetch('/api/state/'+my,{cache:'no-store'});if(r.status===401){needLogin();return}if(!r.ok)throw 0;
     const j=await r.json();if(my!==day||pending)return;
     apply(j);setMode('live');render()
   }catch(e){setMode('off')}
 }
 async function loadStats(){
   const to=ymd(new Date()),f=new Date();f.setDate(f.getDate()-13);
-  try{const r=await fetch('/api/stats?from='+ymd(f)+'&to='+to,{cache:'no-store'});if(!r.ok)throw 0;stats=await r.json();setMode('live');render()}catch(e){setMode('off')}
+  try{const r=await fetch('/api/stats?from='+ymd(f)+'&to='+to,{cache:'no-store'});if(r.status===401){needLogin();return}if(!r.ok)throw 0;stats=await r.json();setMode('live');render()}catch(e){setMode('off')}
 }
 function fail(m){$('#note').innerHTML='<div class="note">'+esc(m)+'</div>';setMode('off')}
 async function toggle(id,on){
@@ -265,7 +271,7 @@ function render(){
   $('#meals').innerHTML='這天在家吃飯 '+[[true,'有'],[false,'沒有']].map(([v,n])=>`<button data-meals="${v}" class="${meals===v?'on':''}">${n}</button>`).join('')+(meals?'':' <span class="f">洗碗、煮飯等先不列入</span>');
   const stat=view!=='stats';
   $('#prog').hidden=!stat;$('#tabs').hidden=!stat;$('#warn').hidden=!stat;
-  $('#me').innerHTML='我是 '+['羿勳','宇茹'].map(n=>`<button data-me="${n}" class="${n===me?'on':''}">${n}</button>`).join('');
+  $('#me').innerHTML=`登入身份：<b>${esc(me)}</b> <button data-act="invite">新增裝置／邀請家人</button><button data-act="logout">登出</button>`;
   if(stat){
     $('#prog').innerHTML=['羿勳','宇茹','共同'].map(w=>{
       const a=items.filter(i=>i.owner===w&&(view==='all'||!due(i).flex&&(due(i).due||isOn(i)))),n=a.filter(isOn).length,p=a.length?Math.round(n/a.length*100):0;
@@ -290,7 +296,6 @@ document.addEventListener('click',e=>{
   if(t.dataset.w){who=t.dataset.w;try{localStorage.setItem('myhome-who',who)}catch(_){};render();return}
   if(t.dataset.view){view=t.dataset.view;if(view==='stats')loadStats();render();return}
   if(t.dataset.meals){setMeals(t.dataset.meals==='true');return}
-  if(t.dataset.me){me=t.dataset.me;try{localStorage.setItem('myhome-me',me)}catch(_){};render();return}
   const a=t.dataset.act,id=t.dataset.id;
   if(a==='edit-toggle'){edit=!edit;form=null;delId=null;if(edit&&view==='stats')view='all';render()}
   else if(a==='add'){form=newForm(t.dataset.cat);render();$('#fTitle')&&$('#fTitle').focus()}
@@ -301,6 +306,11 @@ document.addEventListener('click',e=>{
   else if(a==='delno'){delId=null;render()}
   else if(a==='note'){noteId=id;render()}
   else if(a==='notesave')saveNote(id,$('#noteIn').value);
+  else if(a==='invite'){$('#invite').innerHTML=`<div class="note">邀請誰？ <button class="lnk" data-act="inv" data-who="${me}">我自己的新裝置</button> <button class="lnk" data-act="inv" data-who="${me==='羿勳'?'宇茹':'羿勳'}">${me==='羿勳'?'宇茹':'羿勳'}</button> <button class="lnk" data-act="invclose">取消</button></div>`}
+  else if(a==='inv')makeInvite(t.dataset.who);
+  else if(a==='invclose')$('#invite').innerHTML='';
+  else if(a==='copyinv'){const i=$('#invUrl');i.select();try{navigator.clipboard.writeText(i.value)}catch(_){}}
+  else if(a==='logout'){post('/api/auth/logout',{}).catch(()=>{}).finally(()=>{authed=false;items=[];done={};needLogin()})}
 });
 document.addEventListener('input',e=>{
   if(!form)return;const t=e.target;
@@ -322,10 +332,53 @@ function shift(n){const d=new Date(day+'T00:00:00');d.setDate(d.getDate()+n);go(
 $('#prev').onclick=()=>shift(-1);$('#next').onclick=()=>shift(1);$('#today').onclick=()=>go(ymd(new Date()));
 let lastToday=ymd(new Date());
 setInterval(()=>{const t=ymd(new Date());if(t!==lastToday){if(day===lastToday)go(t);lastToday=t}},60000);
-const busy=()=>pending||form||noteId||edit&&delId;
+const busy=()=>!authed||pending||form||noteId||edit&&delId;
 setInterval(()=>{if(!document.hidden&&!busy()){view==='stats'?loadStats():load()}},5000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy())load()});
-render();load();
+
+// ---- Passkey 登入 ----
+const b64=buf=>{let s='';for(const x of new Uint8Array(buf))s+=String.fromCharCode(x);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const unb64=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s+'='.repeat((4-s.length%4)%4)),c=>c.charCodeAt(0))};
+const inviteToken=new URLSearchParams(location.search).get('invite');
+function needLogin(){
+  authed=false;$('#app').hidden=true;$('#login').hidden=false;
+  const msg=$('#loginMsg'),btn=$('#loginBtn');
+  if(!window.PublicKeyCredential){msg.textContent='這個瀏覽器不支援 Passkey，請改用 Safari 或 Chrome。';btn.hidden=true;return}
+  btn.hidden=false;
+  if(inviteToken){msg.textContent='你收到了邀請。按下按鈕，用 Face ID 或指紋把這支手機加入。';btn.textContent='註冊這支手機';btn.onclick=register}
+  else{msg.textContent='請先驗證身份才能使用。';btn.textContent='用 Face ID／指紋登入';btn.onclick=login}
+}
+async function login(){
+  const msg=$('#loginMsg');
+  try{
+    const o=await post('/api/auth/login/options',{});
+    const cred=await navigator.credentials.get({publicKey:{challenge:unb64(o.challenge),rpId:o.rpId,userVerification:'required',timeout:60000}});
+    const r=cred.response;
+    const j=await post('/api/auth/login/verify',{challengeId:o.challengeId,id:cred.id,authenticatorData:b64(r.authenticatorData),clientDataJSON:b64(r.clientDataJSON),signature:b64(r.signature)});
+    boot(j.user);
+  }catch(e){msg.textContent='登入沒有成功：'+(e.name==='NotAllowedError'?'已取消或逾時，請再按一次。':e.message)}
+}
+async function register(){
+  const msg=$('#loginMsg');
+  try{
+    const o=await post('/api/auth/register/options',{token:inviteToken});
+    const cred=await navigator.credentials.create({publicKey:{challenge:unb64(o.challenge),rp:{name:'家庭分工日誌',id:o.rpId},user:{id:unb64(o.userId),name:o.user,displayName:o.user},pubKeyCredParams:[{type:'public-key',alg:-7}],authenticatorSelection:{residentKey:'required',userVerification:'required'},attestation:'none',timeout:60000}});
+    const r=cred.response;
+    if(!r.getPublicKey)throw new Error('這個瀏覽器版本太舊，請更新後再試。');
+    const j=await post('/api/auth/register/verify',{challengeId:o.challengeId,token:inviteToken,id:cred.id,clientDataJSON:b64(r.clientDataJSON),publicKey:b64(r.getPublicKey()),alg:r.getPublicKeyAlgorithm()});
+    history.replaceState(null,'','/');boot(j.user);
+  }catch(e){msg.textContent='註冊沒有成功：'+(e.name==='NotAllowedError'?'已取消或逾時，請再按一次。':e.message)}
+}
+function boot(user){authed=true;me=user;$('#login').hidden=true;$('#app').hidden=false;render();load()}
+async function makeInvite(who){
+  try{const j=await post('/api/auth/invite',{user:who});
+    $('#invite').innerHTML=`<div class="note">把這個連結用 AirDrop 或訊息傳到要加入的手機，24 小時內有效、只能用一次。<br><input id="invUrl" readonly value="${esc(j.url)}" style="width:100%;margin-top:6px;font:inherit;font-size:13px;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)"><br><button class="lnk" data-act="copyinv">複製</button> <button class="lnk" data-act="invclose">關閉</button></div>`;
+  }catch(e){fail('無法產生邀請連結。')}
+}
+(async()=>{
+  try{const r=await fetch('/api/me',{cache:'no-store'});if(r.ok){boot((await r.json()).user);return}}catch(e){}
+  needLogin();
+})();
 </script>
 </body>
 </html>

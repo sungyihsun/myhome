@@ -23,3 +23,29 @@ CREATE TABLE IF NOT EXISTS day_meta (
   day   TEXT PRIMARY KEY,
   meals INTEGER NOT NULL DEFAULT 1    -- 0 = 當天沒有在家吃飯
 );
+-- Passkey 登入
+CREATE TABLE IF NOT EXISTS credentials (
+  id      TEXT PRIMARY KEY,            -- credential id (base64url)
+  user    TEXT NOT NULL,               -- 羿勳 / 宇茹
+  pubkey  TEXT NOT NULL,               -- SPKI (base64url)，ES256
+  counter INTEGER NOT NULL DEFAULT 0,
+  created INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS invites (
+  token   TEXT PRIMARY KEY,            -- 邀請碼的 SHA-256
+  user    TEXT NOT NULL,
+  expires INTEGER NOT NULL,
+  used    INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token   TEXT PRIMARY KEY,            -- cookie 值的 SHA-256
+  user    TEXT NOT NULL,
+  expires INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS challenges (
+  id      TEXT PRIMARY KEY,
+  value   TEXT NOT NULL,
+  purpose TEXT NOT NULL,               -- login / reg
+  ref     TEXT,
+  expires INTEGER NOT NULL
+);

@@ -1,4 +1,5 @@
 import html from '../public/index.html';
+import { getUser, handleAuth } from './auth.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const PEOPLE = ['羿勳', '宇茹'];
@@ -59,6 +60,15 @@ export default {
       return new Response(JSON.stringify({ name: '家庭分工日誌', short_name: '分工日誌', start_url: '/', display: 'standalone', background_color: '#f4f6f7', theme_color: '#1f6f78', lang: 'zh-Hant', icons: [] }),
         { headers: { 'content-type': 'application/manifest+json' } });
 
+    // 其餘 /api 都要先登入；寫入類請求必須來自同一個網站
+    let user = null;
+    if (p.startsWith('/api/')) {
+      if (request.method !== 'GET' && request.headers.get('origin') !== url.origin) return json({ error: 'bad origin' }, 403);
+      user = await getUser(request, db);
+      if (p === '/api/me' || p.startsWith('/api/auth/')) return handleAuth(request, env, url, user);
+      if (!user) return json({ error: 'login required' }, 401);
+    }
+
     let m;
     // GET /api/state/2026-10-05
     if ((m = p.match(/^\/api\/state\/([^/]+)$/)) && request.method === 'GET') {
@@ -71,7 +81,8 @@ export default {
       const day = m[1];
       const b = await body(request);
       if (!DAY.test(day) || !b) return bad('bad input');
-      if (typeof b.id !== 'string' || b.id.length > 40 || !PEOPLE.includes(b.by)) return bad('bad input');
+      if (typeof b.id !== 'string' || b.id.length > 40) return bad('bad input');
+      b.by = user; // 由登入身份決定是誰勾的
       const hasOn = typeof b.on === 'boolean';
       const hasNote = typeof b.note === 'string';
       if (!hasOn && !hasNote) return bad('nothing to write');
