@@ -1,6 +1,6 @@
 # 家庭分工日誌
 
-Cloudflare Pages（靜態頁 `public/`）＋ Pages Functions（`functions/api`）＋ D1（資料庫），兩人手機每 5 秒自動同步。
+Cloudflare Workers（內嵌頁面 `public/index.html`、API 在 `functions/api`）＋ D1（資料庫），兩人手機每 5 秒自動同步。部署：`wrangler deploy`。
 
 ## 部署到 home.easonsung.com
 

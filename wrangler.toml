@@ -1,8 +1,17 @@
 name = "myhome"
+main = "src/worker.js"
 compatibility_date = "2025-01-01"
-pages_build_output_dir = "public"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = false
 
 [[d1_databases]]
 binding = "DB"
 database_name = "myhome"
-database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+database_id = "925acd2f-60cd-49d3-9978-2c043fc3b403"
+
+[[routes]]
+pattern = "home.easonsung.com"
+custom_domain = true
